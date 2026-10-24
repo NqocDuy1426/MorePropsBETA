@@ -57,5 +57,5 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.0-BETA Initial Release: 262,144 (256K) Prop Limit Expansion with Virtual 16-bit Active Window & Move It 100% Compatibility"
+	"changenote"		"v1.0.1-BETA: Added comprehensive error logging and diagnostic engine (MorePropsBETA.log) with try-catch guards across all hot-swapping and rendering pathways."
 }

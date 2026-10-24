@@ -191,6 +191,7 @@ namespace MorePropsBETA
                     ushort evictedSlot = EvictOldestSingleProp();
                     if (evictedSlot == 0 || !pm.CreateProp(out vanillaId, ref SimulationManager.instance.m_randomizer, info, extProp.m_position, extProp.m_angle, (extProp.m_flags & (ushort)PropInstance.Flags.Single) != 0))
                     {
+                        Log.Warning($"MountProp failed to acquire active vanilla slot for extendedId={extendedId}");
                         return 0; // Không thể cấp phát slot active
                     }
                 }
@@ -209,6 +210,10 @@ namespace MorePropsBETA
 
                 pm.UpdatePropRenderer(vanillaId, true);
             }
+            catch (Exception ex)
+            {
+                Log.Exception($"MountProp(extendedId={extendedId})", ex);
+            }
             finally
             {
                 m_isInternalOperation = false;
@@ -221,37 +226,44 @@ namespace MorePropsBETA
         {
             if (vanillaId == 0) return;
 
-            uint extendedId = m_vanillaToExtendedId[vanillaId];
-            if (extendedId == 0) return;
-
-            PropManager pm = Singleton<PropManager>.instance;
-            if (pm == null) return;
-
-            ref PropInstance vProp = ref pm.m_props.m_buffer[vanillaId];
-            ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
-
-            // Đồng bộ ngược toàn bộ thông số từ Active Buffer về m_props256k trước khi gỡ
-            extProp.m_position = vProp.Position;
-            extProp.m_angle = vProp.Angle;
-            extProp.m_flags = vProp.m_flags;
-            extProp.m_infoIndex = vProp.m_infoIndex;
-            extProp.m_mountedVanillaId = 0;
-
-            // Xóa ánh xạ 2 chiều
-            m_vanillaToExtendedId[vanillaId] = 0;
-            m_extendedToVanillaId[extendedId] = 0;
-
-            if (callVanillaRelease)
+            try
             {
-                m_isInternalOperation = true;
-                try
+                uint extendedId = m_vanillaToExtendedId[vanillaId];
+                if (extendedId == 0) return;
+
+                PropManager pm = Singleton<PropManager>.instance;
+                if (pm == null) return;
+
+                ref PropInstance vProp = ref pm.m_props.m_buffer[vanillaId];
+                ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
+
+                // Đồng bộ ngược toàn bộ thông số từ Active Buffer về m_props256k trước khi gỡ
+                extProp.m_position = vProp.Position;
+                extProp.m_angle = vProp.Angle;
+                extProp.m_flags = vProp.m_flags;
+                extProp.m_infoIndex = vProp.m_infoIndex;
+                extProp.m_mountedVanillaId = 0;
+
+                // Xóa ánh xạ 2 chiều
+                m_vanillaToExtendedId[vanillaId] = 0;
+                m_extendedToVanillaId[extendedId] = 0;
+
+                if (callVanillaRelease)
                 {
-                    pm.ReleaseProp(vanillaId);
+                    m_isInternalOperation = true;
+                    try
+                    {
+                        pm.ReleaseProp(vanillaId);
+                    }
+                    finally
+                    {
+                        m_isInternalOperation = false;
+                    }
                 }
-                finally
-                {
-                    m_isInternalOperation = false;
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception($"UnmountProp(vanillaId={vanillaId})", ex);
             }
         }
 
@@ -259,105 +271,126 @@ namespace MorePropsBETA
         {
             if (vanillaId == 0) return;
 
-            uint extendedId = m_vanillaToExtendedId[vanillaId];
-            if (extendedId == 0 || extendedId >= MAX_EXTENDED_PROPS) return;
-
-            PropManager pm = Singleton<PropManager>.instance;
-            if (pm == null) return;
-
-            ref PropInstance vProp = ref pm.m_props.m_buffer[vanillaId];
-            ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
-
-            Vector3 oldPos = extProp.m_position;
-            extProp.m_position = vProp.Position;
-            extProp.m_angle = vProp.Angle;
-            extProp.m_flags = vProp.m_flags;
-            extProp.m_infoIndex = vProp.m_infoIndex;
-            extProp.m_lastAccessTime = Time.realtimeSinceStartup;
-
-            // Nếu vị trí thay đổi (ví dụ Move It di chuyển prop), cập nhật lại spatial grid 32-bit
-            if (oldPos != extProp.m_position)
+            try
             {
-                RemoveFromGrid32(extendedId, oldPos);
-                AddToGrid32(extendedId, extProp.m_position);
+                uint extendedId = m_vanillaToExtendedId[vanillaId];
+                if (extendedId == 0 || extendedId >= MAX_EXTENDED_PROPS) return;
+
+                PropManager pm = Singleton<PropManager>.instance;
+                if (pm == null) return;
+
+                ref PropInstance vProp = ref pm.m_props.m_buffer[vanillaId];
+                ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
+
+                Vector3 oldPos = extProp.m_position;
+                extProp.m_position = vProp.Position;
+                extProp.m_angle = vProp.Angle;
+                extProp.m_flags = vProp.m_flags;
+                extProp.m_infoIndex = vProp.m_infoIndex;
+                extProp.m_lastAccessTime = Time.realtimeSinceStartup;
+
+                // Nếu vị trí thay đổi (ví dụ Move It di chuyển prop), cập nhật lại spatial grid 32-bit
+                if (oldPos != extProp.m_position)
+                {
+                    RemoveFromGrid32(extendedId, oldPos);
+                    AddToGrid32(extendedId, extProp.m_position);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception($"SyncFromVanilla(vanillaId={vanillaId})", ex);
             }
         }
 
         public void MountPropsInArea(Vector3 center, float radius)
         {
-            int minX = WorldToGridX(center.x - radius);
-            int maxX = WorldToGridX(center.x + radius);
-            int minZ = WorldToGridZ(center.z - radius);
-            int maxZ = WorldToGridZ(center.z + radius);
-            float radiusSqr = radius * radius;
-
-            for (int z = minZ; z <= maxZ; z++)
+            try
             {
-                for (int x = minX; x <= maxX; x++)
+                int minX = WorldToGridX(center.x - radius);
+                int maxX = WorldToGridX(center.x + radius);
+                int minZ = WorldToGridZ(center.z - radius);
+                int maxZ = WorldToGridZ(center.z + radius);
+                float radiusSqr = radius * radius;
+
+                for (int z = minZ; z <= maxZ; z++)
                 {
-                    uint cell = (uint)(z * PROPGRID_RESOLUTION + x);
-                    uint extId = m_propGrid32[cell];
-
-                    while (extId != 0)
+                    for (int x = minX; x <= maxX; x++)
                     {
-                        ref ExtendedPropInstance prop = ref m_props256k[extId];
-                        uint next = prop.m_nextGridProp;
+                        uint cell = (uint)(z * PROPGRID_RESOLUTION + x);
+                        uint extId = m_propGrid32[cell];
 
-                        if (prop.IsCreated && !prop.IsMounted)
+                        while (extId != 0)
                         {
-                            Vector3 diff = prop.m_position - center;
-                            diff.y = 0f;
-                            if (diff.sqrMagnitude <= radiusSqr)
+                            ref ExtendedPropInstance prop = ref m_props256k[extId];
+                            uint next = prop.m_nextGridProp;
+
+                            if (prop.IsCreated && !prop.IsMounted)
                             {
-                                MountProp(extId);
+                                Vector3 diff = prop.m_position - center;
+                                diff.y = 0f;
+                                if (diff.sqrMagnitude <= radiusSqr)
+                                {
+                                    MountProp(extId);
+                                }
                             }
-                        }
-                        else if (prop.IsMounted)
-                        {
-                            prop.m_lastAccessTime = Time.realtimeSinceStartup;
-                        }
+                            else if (prop.IsMounted)
+                            {
+                                prop.m_lastAccessTime = Time.realtimeSinceStartup;
+                            }
 
-                        extId = next;
+                            extId = next;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("MountPropsInArea", ex);
             }
         }
 
         public void MountPropsInRect(float minX, float minZ, float maxX, float maxZ)
         {
-            int gx0 = WorldToGridX(minX);
-            int gx1 = WorldToGridX(maxX);
-            int gz0 = WorldToGridZ(minZ);
-            int gz1 = WorldToGridZ(maxZ);
-
-            for (int z = gz0; z <= gz1; z++)
+            try
             {
-                for (int x = gx0; x <= gx1; x++)
+                int gx0 = WorldToGridX(minX);
+                int gx1 = WorldToGridX(maxX);
+                int gz0 = WorldToGridZ(minZ);
+                int gz1 = WorldToGridZ(maxZ);
+
+                for (int z = gz0; z <= gz1; z++)
                 {
-                    uint cell = (uint)(z * PROPGRID_RESOLUTION + x);
-                    uint extId = m_propGrid32[cell];
-
-                    while (extId != 0)
+                    for (int x = gx0; x <= gx1; x++)
                     {
-                        ref ExtendedPropInstance prop = ref m_props256k[extId];
-                        uint next = prop.m_nextGridProp;
+                        uint cell = (uint)(z * PROPGRID_RESOLUTION + x);
+                        uint extId = m_propGrid32[cell];
 
-                        if (prop.IsCreated && !prop.IsMounted)
+                        while (extId != 0)
                         {
-                            if (prop.m_position.x >= minX && prop.m_position.x <= maxX &&
-                                prop.m_position.z >= minZ && prop.m_position.z <= maxZ)
+                            ref ExtendedPropInstance prop = ref m_props256k[extId];
+                            uint next = prop.m_nextGridProp;
+
+                            if (prop.IsCreated && !prop.IsMounted)
                             {
-                                MountProp(extId);
+                                if (prop.m_position.x >= minX && prop.m_position.x <= maxX &&
+                                    prop.m_position.z >= minZ && prop.m_position.z <= maxZ)
+                                {
+                                    MountProp(extId);
+                                }
                             }
-                        }
-                        else if (prop.IsMounted)
-                        {
-                            prop.m_lastAccessTime = Time.realtimeSinceStartup;
-                        }
+                            else if (prop.IsMounted)
+                            {
+                                prop.m_lastAccessTime = Time.realtimeSinceStartup;
+                            }
 
-                        extId = next;
+                            extId = next;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("MountPropsInRect", ex);
             }
         }
 
@@ -371,25 +404,32 @@ namespace MorePropsBETA
         // ==========================================
         public void EvictDistantProps(Vector3 preserveCenter, float preserveRadius, int targetEvictCount)
         {
-            float preserveRadiusSqr = preserveRadius * preserveRadius;
-            int evicted = 0;
-
-            for (ushort vId = 1; vId < 65535; vId++)
+            try
             {
-                if (evicted >= targetEvictCount) break;
+                float preserveRadiusSqr = preserveRadius * preserveRadius;
+                int evicted = 0;
 
-                uint extId = m_vanillaToExtendedId[vId];
-                if (extId == 0) continue;
-
-                ref ExtendedPropInstance extProp = ref m_props256k[extId];
-                Vector3 diff = extProp.m_position - preserveCenter;
-                diff.y = 0f;
-
-                if (diff.sqrMagnitude > preserveRadiusSqr)
+                for (ushort vId = 1; vId < 65535; vId++)
                 {
-                    UnmountProp(vId, true);
-                    evicted++;
+                    if (evicted >= targetEvictCount) break;
+
+                    uint extId = m_vanillaToExtendedId[vId];
+                    if (extId == 0) continue;
+
+                    ref ExtendedPropInstance extProp = ref m_props256k[extId];
+                    Vector3 diff = extProp.m_position - preserveCenter;
+                    diff.y = 0f;
+
+                    if (diff.sqrMagnitude > preserveRadiusSqr)
+                    {
+                        UnmountProp(vId, true);
+                        evicted++;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("EvictDistantProps", ex);
             }
         }
 

@@ -51,28 +51,35 @@ namespace MorePropsBETA
         {
             base.Update();
 
-            if (Time.realtimeSinceStartup - m_lastUpdateTime < 0.5f) return;
-            m_lastUpdateTime = Time.realtimeSinceStartup;
-
-            PropManager pm = Singleton<PropManager>.instance;
-            ExtendedPropManager extMgr = ExtendedPropManager.Instance;
-
-            if (pm != null && extMgr != null)
+            try
             {
-                int activeCount = pm.m_propCount;
-                uint totalCount = extMgr.ExtendedPropCount;
+                if (Time.realtimeSinceStartup - m_lastUpdateTime < 0.5f) return;
+                m_lastUpdateTime = Time.realtimeSinceStartup;
 
-                m_vanillaBufferLabel.text = $"Active Buffer: {activeCount:N0} / 65,536";
-                m_total256kLabel.text = $"Total Props: {totalCount:N0} / 262,144";
+                PropManager pm = Singleton<PropManager>.instance;
+                ExtendedPropManager extMgr = ExtendedPropManager.Instance;
 
-                if (activeCount > ExtendedPropManager.SAFE_VANILLA_THRESHOLD)
+                if (pm != null && extMgr != null)
                 {
-                    m_vanillaBufferLabel.textColor = new Color32(255, 160, 0, 255); // Cảnh báo vàng cam
+                    int activeCount = pm.m_propCount;
+                    uint totalCount = extMgr.ExtendedPropCount;
+
+                    m_vanillaBufferLabel.text = $"Active Buffer: {activeCount:N0} / 65,536";
+                    m_total256kLabel.text = $"Total Props: {totalCount:N0} / 262,144";
+
+                    if (activeCount > ExtendedPropManager.SAFE_VANILLA_THRESHOLD)
+                    {
+                        m_vanillaBufferLabel.textColor = new Color32(255, 160, 0, 255); // Cảnh báo vàng cam
+                    }
+                    else
+                    {
+                        m_vanillaBufferLabel.textColor = Color.white;
+                    }
                 }
-                else
-                {
-                    m_vanillaBufferLabel.textColor = Color.white;
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("LimitDisplayPanel.Update", ex);
             }
         }
     }
@@ -83,29 +90,43 @@ namespace MorePropsBETA
 
         public void Update()
         {
-            // Phím tắt Alt + P để bật / tắt bảng thông số
-            if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
+            try
             {
-                if (Input.GetKeyDown(KeyCode.P))
+                // Phím tắt Alt + P để bật / tắt bảng thông số
+                if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
                 {
-                    TogglePanel();
+                    if (Input.GetKeyDown(KeyCode.P))
+                    {
+                        TogglePanel();
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("LimitDisplayHotkeyListener.Update", ex);
             }
         }
 
         public void TogglePanel()
         {
-            if (m_panel == null)
+            try
             {
-                UIView view = UIView.GetAView();
-                if (view != null)
+                if (m_panel == null)
                 {
-                    m_panel = (LimitDisplayPanel)view.AddUIComponent(typeof(LimitDisplayPanel));
+                    UIView view = UIView.GetAView();
+                    if (view != null)
+                    {
+                        m_panel = (LimitDisplayPanel)view.AddUIComponent(typeof(LimitDisplayPanel));
+                    }
+                }
+                else
+                {
+                    m_panel.isVisible = !m_panel.isVisible;
                 }
             }
-            else
+            catch (Exception ex)
             {
-                m_panel.isVisible = !m_panel.isVisible;
+                Log.Exception("LimitDisplayHotkeyListener.TogglePanel", ex);
             }
         }
     }

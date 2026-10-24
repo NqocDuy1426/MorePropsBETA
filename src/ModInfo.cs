@@ -82,6 +82,8 @@ namespace MorePropsBETA
 
                     if (plugin.name.Contains("ExtendedManagersLibrary") || plugin.name.Contains("EML") || plugin.publishedFileID.AsUInt64 == 2696146766)
                     {
+                        string warnMsg = "Detected 'Extended Managers Library' (EML) enabled. This is incompatible with More Props BETA.";
+                        Log.Warning(warnMsg);
                         UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel").SetMessage(
                             "Incompatible Mod Detected",
                             "More Props BETA phát hiện bạn đang bật 'Extended Managers Library' (EML). " +
@@ -94,7 +96,7 @@ namespace MorePropsBETA
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[MorePropsBETA] Error checking mod conflicts: " + ex.Message);
+                Log.Exception("CheckModConflicts", ex);
             }
         }
     }
@@ -112,11 +114,11 @@ namespace MorePropsBETA
                 HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
                 s_isPatched = true;
-                Debug.Log("[MorePropsBETA] Harmony patches applied successfully.");
+                Log.Info("Harmony patches applied successfully.");
             }
             catch (Exception ex)
             {
-                Debug.LogError("[MorePropsBETA] Failed to apply Harmony patches: " + ex);
+                Log.Exception("Patcher.PatchAll", ex);
             }
         }
 
@@ -129,11 +131,11 @@ namespace MorePropsBETA
                 HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
                 harmony.UnpatchAll(ModInfo.HARMONY_ID);
                 s_isPatched = false;
-                Debug.Log("[MorePropsBETA] Harmony patches unpatched.");
+                Log.Info("Harmony patches unpatched.");
             }
             catch (Exception ex)
             {
-                Debug.LogError("[MorePropsBETA] Failed to unpatch Harmony: " + ex);
+                Log.Exception("Patcher.UnpatchAll", ex);
             }
         }
     }

@@ -85,12 +85,12 @@ namespace MorePropsBETA
                     }
 
                     serializableDataManager.SaveData(DATA_CONTAINER_ID, ms.ToArray());
-                    Debug.Log($"[MorePropsBETA] Successfully saved {createdCount} extended props to custom stream.");
+                    Log.Info($"Successfully saved {createdCount} extended props to custom stream.");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError("[MorePropsBETA] Error while saving extended props: " + ex);
+                Log.Exception("MorePropsSerializer.OnSaveData", ex);
             }
         }
 
@@ -110,7 +110,7 @@ namespace MorePropsBETA
             byte[] data = serializableDataManager.LoadData(DATA_CONTAINER_ID);
             if (data == null || data.Length == 0)
             {
-                Debug.Log("[MorePropsBETA] No extended prop container found in save. Importing existing vanilla props into 256K storage...");
+                Log.Info("No extended prop container found in save. Importing existing vanilla props into 256K storage...");
                 ImportVanillaPropsIntoExtended(extMgr);
                 return;
             }
@@ -123,14 +123,14 @@ namespace MorePropsBETA
                     uint magic = reader.ReadUInt32();
                     if (magic != SERIALIZER_MAGIC)
                     {
-                        Debug.LogError("[MorePropsBETA] Invalid magic header in save data. Aborting load.");
+                        Log.Error("Invalid magic header in save data. Aborting load.");
                         return;
                     }
 
                     uint version = reader.ReadUInt32();
                     if (version != FORMAT_VERSION)
                     {
-                        Debug.LogError("[MorePropsBETA] Unsupported format version: " + version);
+                        Log.Error("Unsupported format version: " + version);
                         return;
                     }
 
@@ -149,6 +149,7 @@ namespace MorePropsBETA
                         else
                         {
                             resolvedPrefabIndexes[i] = 0;
+                            Log.Warning($"Missing prop asset '{propName}' from save. Skipping.");
                         }
                     }
 
@@ -183,12 +184,12 @@ namespace MorePropsBETA
                     // 3. Liên kết các prop vanilla đã được game nạp sẵn vào buffer với mảng 256K
                     LinkExistingVanillaProps(extMgr);
 
-                    Debug.Log($"[MorePropsBETA] Successfully restored {totalProps} extended props.");
+                    Log.Info($"Successfully restored {totalProps} extended props.");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError("[MorePropsBETA] Error loading extended prop data: " + ex);
+                Log.Exception("MorePropsSerializer.OnLoadData", ex);
             }
         }
 

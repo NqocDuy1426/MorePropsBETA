@@ -24,57 +24,64 @@ namespace MorePropsBETA
 
             Randomizer randomizer = new Randomizer(314159);
 
-            for (int z = minZ; z <= maxZ; z++)
+            try
             {
-                for (int x = minX; x <= maxX; x++)
+                for (int z = minZ; z <= maxZ; z++)
                 {
-                    uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
-                    uint extId = extMgr.m_propGrid32[cell];
-
-                    while (extId != 0)
+                    for (int x = minX; x <= maxX; x++)
                     {
-                        ref ExtendedPropInstance prop = ref extMgr.m_props256k[extId];
-                        uint next = prop.m_nextGridProp;
+                        uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
+                        uint extId = extMgr.m_propGrid32[cell];
 
-                        // CHỈ RENDER các prop đang ở trạng thái UNMOUNTED
-                        // (Các prop MOUNTED đã được game gốc vẽ qua m_props trong vòng lặp trước đó)
-                        if (prop.IsCreated && !prop.IsMounted && (prop.m_flags & (ushort)PropInstance.Flags.Hidden) == 0)
+                        while (extId != 0)
                         {
-                            PropInfo info = PrefabCollection<PropInfo>.GetPrefab(prop.m_infoIndex);
-                            if (info != null)
+                            ref ExtendedPropInstance prop = ref extMgr.m_props256k[extId];
+                            uint next = prop.m_nextGridProp;
+
+                            // CHỈ RENDER các prop đang ở trạng thái UNMOUNTED
+                            // (Các prop MOUNTED đã được game gốc vẽ qua m_props trong vòng lặp trước đó)
+                            if (prop.IsCreated && !prop.IsMounted && (prop.m_flags & (ushort)PropInstance.Flags.Hidden) == 0)
                             {
-                                float scale = (info.m_minScale + info.m_maxScale) * 0.5f;
-                                Color color = info.GetColor(ref randomizer);
+                                PropInfo info = PrefabCollection<PropInfo>.GetPrefab(prop.m_infoIndex);
+                                if (info != null)
+                                {
+                                    float scale = (info.m_minScale + info.m_maxScale) * 0.5f;
+                                    Color color = info.GetColor(ref randomizer);
 
-                                // Gọi chính xác phương thức RenderInstance gốc của game engine
-                                PropInstance.RenderInstance(
-                                    cameraInfo,
-                                    info,
-                                    default(InstanceID),
-                                    prop.m_position,
-                                    scale,
-                                    prop.m_angle,
-                                    color,
-                                    RenderManager.DefaultColorLocation,
-                                    true
-                                );
+                                    // Gọi chính xác phương thức RenderInstance gốc của game engine
+                                    PropInstance.RenderInstance(
+                                        cameraInfo,
+                                        info,
+                                        default(InstanceID),
+                                        prop.m_position,
+                                        scale,
+                                        prop.m_angle,
+                                        color,
+                                        RenderManager.DefaultColorLocation,
+                                        true
+                                    );
+                                }
                             }
-                        }
 
-                        extId = next;
+                            extId = next;
+                        }
+                    }
+                }
+
+                // Xả các Batch LOD còn đọng trong PropInfo để hoàn tất khung hình
+                int propCount = PrefabCollection<PropInfo>.PrefabCount();
+                for (int i = 0; i < propCount; i++)
+                {
+                    PropInfo info = PrefabCollection<PropInfo>.GetPrefab((uint)i);
+                    if (info != null && info.m_lodCount > 0)
+                    {
+                        PropInstance.RenderLod(cameraInfo, info);
                     }
                 }
             }
-
-            // Xả các Batch LOD còn đọng trong PropInfo để hoàn tất khung hình
-            int propCount = PrefabCollection<PropInfo>.PrefabCount();
-            for (int i = 0; i < propCount; i++)
+            catch (Exception ex)
             {
-                PropInfo info = PrefabCollection<PropInfo>.GetPrefab((uint)i);
-                if (info != null && info.m_lodCount > 0)
-                {
-                    PropInstance.RenderLod(cameraInfo, info);
-                }
+                Log.Exception("EndRenderingImplPostfix", ex);
             }
         }
     }
