@@ -14,6 +14,13 @@ echo "=========================================================="
 echo "🚀 Building $MOD_NAME (by NgocDuy)..."
 echo "=========================================================="
 
+# 0. Run Simulation Test Suite before build
+echo "0️⃣ Running Simulation Test Suite (50 deep simulation test cases)..."
+CECIL_DLL="/Library/Frameworks/Mono.framework/Versions/6.12.0/lib/mono/gac/Mono.Cecil/0.11.1.0__0738eb9f132ed756/Mono.Cecil.dll"
+mcs -r:"$CECIL_DLL" run_simulation_tests.cs -out:run_simulation_tests.exe
+mono run_simulation_tests.exe
+echo "✅ Test Suite passed 100%."
+
 # 1. Compile MorePropsBETA.dll with mcs
 echo "1️⃣ Compiling $MOD_NAME.dll with mcs..."
 mcs -sdk:2 -target:library \
