@@ -1,0 +1,61 @@
+"workshopitem"
+{
+	"appid"		"255710"
+	"publishedfileid"		"3826164167"
+	"contentfolder"		"/Users/nqocduy/CS_MorePropsBETA/content"
+	"previewfile"		"/Users/nqocduy/CS_MorePropsBETA/preview-image.png"
+	"visibility"		"0"
+	"title"		"More Props BETA"
+	"description"		"[h1]🌳 MORE PROPS BETA (256K EDITION) 🌳[/h1]
+[b]The 262,144 User Props Limit Breaker & Virtual Active Window Engine for Cities: Skylines[/b]
+[i]Engineered with high-performance 32-bit spatial partitioning and seamless 16-bit tool hot-swapping by NgocDuy[/i]
+
+[hr][/hr]
+
+[h1]🌟 OVERVIEW: QUADRUPLED PROP CAPACITY[/h1]
+Have you ever hit the infamous [b]Prop Limit (65,536 props)[/b] when detailing sprawling downtowns, lush forested parks, realistic highways, or complex railway networks?
+In vanilla Cities: Skylines, [b]PropManager.MAX_PROPS_LIMIT is hard-coded at 65,536[/b] (16-bit ushort). Once reached, the game permanently refuses to place any more props, and cloning props with Move It fails completely.
+
+[b]More Props BETA[/b] safely expands the user prop ceiling to [b]262,144 props (256K)[/b] — a massive [b]400% capacity boost[/b]!
+
+[list]
+[*] [b]Vanilla Limit:[/b] 65,536 Props
+[*] [b]More Props BETA Limit:[/b] [b]262,144 Props (256K / 2^18)[/b]
+[*] [b]Compatibility:[/b] [b]100% Native support for Move It, Prop Line Tool, Find It! 2, Forest Brush, Prop Anarchy[/b]
+[*] [b]Save Safety:[/b] Dual-stream serialization with Asset String Table (immune to asset re-index)
+[/list]
+
+[hr][/hr]
+
+[h1]⚡ ARCHITECTURAL BREAKTHROUGH: VIRTUAL 16-BIT ACTIVE WINDOW[/h1]
+Unlike naive implementations that break 16-bit mod compatibility, More Props BETA uses a state-of-the-art [b]Virtual 16-bit Active Window (Hot-Swapping Pool)[/b]:
+
+[list]
+[*] [b]The Problem:[/b] Core tool mods like [b]Move It (MoveableProp)[/b] and Prop Tool communicate strictly via 16-bit [i]InstanceID.Prop (ushort)[/i]. Forcing 32-bit IDs causes catastrophic exceptions in Move It.
+[*] [b]The Solution:[/b] The vanilla 65K array is preserved as an active dynamic interaction buffer. The full 262,144 props live in our extended 32-bit storage grid.
+[*] [b]Zero-Latency Hot-Swapping:[/b] When your cursor moves over any prop or when you drag a Move It marquee selection box, the props in those grid cells are instantly mounted into free ushort slots.
+[*] [b]Bi-directional Instant Sync:[/b] Any translation, rotation, elevation, cloning, or deletion done in Move It is instantly synced back to the extended 256K database in real time!
+[/list]
+
+[hr][/hr]
+
+[h1]🎮 FEATURES AT A GLANCE[/h1]
+[list]
+[*] [b]Full Move It 100% Compatibility:[/b] Drag, rotate, clone, elevate, align, and copy-paste any prop in the 262,144 universe seamlessly!
+[*] [b]Optimized Frustum & LOD Batching Renderer:[/b] Unmounted props are rendered with native camera frustum culling and hardware-accelerated LOD instancing, ensuring smooth 60 FPS even with 200,000+ props.
+[*] [b]String Table Save Protection:[/b] Extended props are serialized with their full asset prefab names. If you unsubscribe from a Workshop prop or your asset list changes order, your other props will never disappear or get swapped!
+[*] [b]In-Game HUD Monitor:[/b] Press [b]Alt + P[/b] anytime in-game to view real-time Active Buffer usage and Total 256K Props placed.
+[/list]
+
+[hr][/hr]
+
+[h1]🔧 COMPATIBILITY & REQUIREMENTS[/h1]
+[list]
+[*] [b]Harmony 2.x:[/b] Self-contained via CitiesHarmony.
+[*] [b]Incompatible Mods:[/b] Extended Managers Library (EML). (Do not run both simultaneously).
+[*] [b]Fully Compatible:[/b] Move It, Prop Line Tool (PLT), Find It! 2, Prop Anarchy, Forest Brush, Network Multitool, Node Controller, TM:PE.
+[/list]
+
+[b]Developed with precision by NgocDuy[/b]"
+	"changenote"		"v1.0.0-BETA Initial Release: 262,144 (256K) Prop Limit Expansion with Virtual 16-bit Active Window & Move It 100% Compatibility"
+}

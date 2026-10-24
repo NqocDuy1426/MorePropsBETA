@@ -1,0 +1,140 @@
+using System;
+using System.Reflection;
+using ICities;
+using CitiesHarmony.API;
+using UnityEngine;
+using ColossalFramework.UI;
+using ColossalFramework.Plugins;
+
+namespace MorePropsBETA
+{
+    public sealed class ModInfo : IUserMod
+    {
+        public const string HARMONY_ID = "com.ngocduy.morepropsbeta";
+        public const string MOD_NAME = "More Props BETA";
+        public const string MOD_VERSION = "1.0.0-BETA";
+        public const string MOD_DESCRIPTION = "Expands the prop limit to 262,144 (256K) with Active Window Hot-Swapping for 100% Move It compatibility.";
+
+        public string Name => MOD_NAME;
+        public string Description => MOD_DESCRIPTION;
+
+        public void OnEnabled()
+        {
+            HarmonyHelper.DoOnHarmonyReady(() =>
+            {
+                Patcher.PatchAll();
+            });
+        }
+
+        public void OnDisabled()
+        {
+            if (HarmonyHelper.IsHarmonyInstalled)
+            {
+                Patcher.UnpatchAll();
+            }
+        }
+    }
+
+    public sealed class LoadingExtension : LoadingExtensionBase
+    {
+        private static GameObject s_hotkeyGo;
+
+        public override void OnCreated(ILoading loading)
+        {
+            base.OnCreated(loading);
+        }
+
+        public override void OnLevelLoaded(LoadMode mode)
+        {
+            base.OnLevelLoaded(mode);
+
+            if (mode != LoadMode.LoadGame && mode != LoadMode.NewGame && mode != LoadMode.NewGameFromScenario && mode != LoadMode.LoadScenario)
+            {
+                return;
+            }
+
+            CheckModConflicts();
+            ExtendedPropManager.EnsureInitialized();
+            DynamicMoveItHook.TryHookMoveIt();
+
+            if (s_hotkeyGo == null)
+            {
+                s_hotkeyGo = new GameObject("MorePropsBETA_HotkeyListener");
+                s_hotkeyGo.AddComponent<LimitDisplayHotkeyListener>();
+                UnityEngine.Object.DontDestroyOnLoad(s_hotkeyGo);
+            }
+        }
+
+        public override void OnLevelUnloading()
+        {
+            base.OnLevelUnloading();
+            ExtendedPropManager.Instance?.Reset();
+        }
+
+        private static void CheckModConflicts()
+        {
+            try
+            {
+                PluginManager pluginManager = PluginManager.instance;
+                foreach (PluginManager.PluginInfo plugin in pluginManager.GetPluginsInfo())
+                {
+                    if (!plugin.isEnabled) continue;
+
+                    if (plugin.name.Contains("ExtendedManagersLibrary") || plugin.name.Contains("EML") || plugin.publishedFileID.AsUInt64 == 2696146766)
+                    {
+                        UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel").SetMessage(
+                            "Incompatible Mod Detected",
+                            "More Props BETA phát hiện bạn đang bật 'Extended Managers Library' (EML). " +
+                            "Hai mod này không thể chạy song song vì đều can thiệp sâu vào PropManager. Vui lòng tắt một trong hai mod để tránh hỏng file save!",
+                            true
+                        );
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[MorePropsBETA] Error checking mod conflicts: " + ex.Message);
+            }
+        }
+    }
+
+    internal static class Patcher
+    {
+        private static bool s_isPatched = false;
+
+        public static void PatchAll()
+        {
+            if (s_isPatched) return;
+
+            try
+            {
+                HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
+                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                s_isPatched = true;
+                Debug.Log("[MorePropsBETA] Harmony patches applied successfully.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[MorePropsBETA] Failed to apply Harmony patches: " + ex);
+            }
+        }
+
+        public static void UnpatchAll()
+        {
+            if (!s_isPatched) return;
+
+            try
+            {
+                HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
+                harmony.UnpatchAll(ModInfo.HARMONY_ID);
+                s_isPatched = false;
+                Debug.Log("[MorePropsBETA] Harmony patches unpatched.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[MorePropsBETA] Failed to unpatch Harmony: " + ex);
+            }
+        }
+    }
+}
