@@ -439,9 +439,11 @@ namespace MorePropsBETA
                 float preserveRadiusSqr = preserveRadius * preserveRadius;
                 int evicted = 0;
 
-                for (ushort vId = 1; vId < 65535; vId++)
+                for (int i = 1; i < 65536; i++)
                 {
                     if (evicted >= targetEvictCount) break;
+
+                    ushort vId = (ushort)i;
 
                     uint extId = m_vanillaToExtendedId[vId];
                     if (extId == 0) continue;
@@ -468,8 +470,9 @@ namespace MorePropsBETA
             float oldestTime = float.MaxValue;
             ushort oldestVanillaId = 0;
 
-            for (ushort vId = 1; vId < 65535; vId++)
+            for (int i = 1; i < 65536; i++)
             {
+                ushort vId = (ushort)i;
                 uint extId = m_vanillaToExtendedId[vId];
                 if (extId == 0) continue;
 

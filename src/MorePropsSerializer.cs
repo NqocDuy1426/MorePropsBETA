@@ -202,8 +202,10 @@ namespace MorePropsBETA
             try
             {
                 int imported = 0;
-                for (ushort vId = 1; vId < pm.m_props.m_size; vId++)
+                int maxProps = Math.Min((int)pm.m_props.m_size, pm.m_props.m_buffer.Length);
+                for (int i = 1; i < maxProps; i++)
                 {
+                    ushort vId = (ushort)i;
                     ref PropInstance vProp = ref pm.m_props.m_buffer[vId];
                     if ((vProp.m_flags & (ushort)PropInstance.Flags.Created) != 0)
                     {
@@ -222,8 +224,7 @@ namespace MorePropsBETA
 
                             extMgr.AddToGrid32(extId, extProp.m_position);
 
-                            // Đảm bảo tính toán đúng chiều cao mặt đất (Terrain Height) và cập nhật bitmask renderer
-                            pm.m_props.m_buffer[vId].CalculateProp(vId);
+                            // Đánh dấu bitmask m_updatedProps để engine tự động cập nhật renderer ở frame tiếp theo
                             if (pm.m_updatedProps != null && (vId >> 6) < pm.m_updatedProps.Length)
                             {
                                 pm.m_updatedProps[vId >> 6] |= 1UL << (vId & 63);
@@ -255,8 +256,10 @@ namespace MorePropsBETA
             extMgr.m_isInternalOperation = true;
             try
             {
-                for (ushort vId = 1; vId < pm.m_props.m_size; vId++)
+                int maxProps = Math.Min((int)pm.m_props.m_size, pm.m_props.m_buffer.Length);
+                for (int i = 1; i < maxProps; i++)
                 {
+                    ushort vId = (ushort)i;
                     ref PropInstance vProp = ref pm.m_props.m_buffer[vId];
                     if ((vProp.m_flags & (ushort)PropInstance.Flags.Created) != 0)
                     {
@@ -276,8 +279,7 @@ namespace MorePropsBETA
                                 extMgr.m_vanillaToExtendedId[vId] = extId;
                                 extMgr.m_extendedToVanillaId[extId] = vId;
 
-                                // Đảm bảo tính toán đúng chiều cao mặt đất (Terrain Height) và cập nhật bitmask renderer
-                                pm.m_props.m_buffer[vId].CalculateProp(vId);
+                                // Đánh dấu bitmask m_updatedProps để engine tự động cập nhật renderer ở frame tiếp theo
                                 if (pm.m_updatedProps != null && (vId >> 6) < pm.m_updatedProps.Length)
                                 {
                                     pm.m_updatedProps[vId >> 6] |= 1UL << (vId & 63);
