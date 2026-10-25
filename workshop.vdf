@@ -57,11 +57,10 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.3-BETA: CRITICAL FIX & UNLOCK RESTORATION:
-1. Rebuilt FreeList and extended prop counters upon loading saves (fixed deserialization bug where prop count reset to 0 and new props collided with loaded IDs).
-2. Cascading Active Window headroom manager guarantees 15,000+ free active slots at all times, completely eliminating 'Cannot create more objects of this type' in dense areas.
-3. 100% full sync for unlinked vanilla props preventing buffer clogging.
-4. CSL Show More Limits integration natively displays 262,144 prop capacity and correct color coding.
-5. Distance-based GPU frustum culling with CheckRenderDistance for unmounted props."
+	"changenote"		"v1.0.4-BETA: CSL SHOW MORE LIMITS & MONITOR STANDARDIZATION:
+1. Standardized CSL Show More Limits display format: Synchronized internal data buffer _tmpotherdata[5] with 256K extended prop count, perfectly aligning 'User Props' with 'Trees' and all other limit rows.
+2. Restored native CSL green/yellow/red color-coding palette (0, 204, 0 for <90%, 255, 204, 0 for 90-95%, 255, 0, 0 for >95%) eliminating jarring white text and formatting deviations.
+3. Fixed CSL Show More Limits Copy Clipboard and Log Data buttons to export the true 256K prop count without formatting exceptions.
+4. Added graceful discovery and integration hooks for third-party limit monitor mods (Watch It! / Show It!)."
 }
 
