@@ -39,12 +39,12 @@ namespace MorePropsBETA
             m_titleLabel.relativePosition = new Vector3(12, 10);
 
             m_vanillaBufferLabel = AddUIComponent<UILabel>();
-            m_vanillaBufferLabel.text = "Active Buffer: 0 / 65,536";
+            m_vanillaBufferLabel.text = "Active Buffer: 0";
             m_vanillaBufferLabel.textScale = 0.75f;
             m_vanillaBufferLabel.relativePosition = new Vector3(12, 38);
 
             m_total256kLabel = AddUIComponent<UILabel>();
-            m_total256kLabel.text = "Total Props: 0 / 262,144";
+            m_total256kLabel.text = "Total Props: 0";
             m_total256kLabel.textScale = 0.75f;
             m_total256kLabel.relativePosition = new Vector3(12, 65);
         }
@@ -64,10 +64,12 @@ namespace MorePropsBETA
                 if (pm != null && extMgr != null)
                 {
                     int activeCount = pm.m_propCount;
+                    uint bufferCapacity = pm.m_props.m_size;
                     uint totalCount = extMgr.ExtendedPropCount;
+                    uint maxCapacity = extMgr.MaxProps;
 
-                    m_vanillaBufferLabel.text = $"Active Buffer: {activeCount:N0} / 65,536";
-                    m_total256kLabel.text = $"Total Props: {totalCount:N0} / 262,144";
+                    m_vanillaBufferLabel.text = $"Active Buffer: {activeCount:N0} / {bufferCapacity:N0}";
+                    m_total256kLabel.text = $"Total Props: {totalCount:N0} / {maxCapacity:N0}";
 
                     if (activeCount > ExtendedPropManager.SAFE_VANILLA_THRESHOLD)
                     {
@@ -90,7 +92,6 @@ namespace MorePropsBETA
     {
         private LimitDisplayPanel m_panel;
         private float m_lastHeadroomCheck = 0f;
-        private float m_lastDisplaySync = 0f;
 
         public void Update()
         {
@@ -103,13 +104,6 @@ namespace MorePropsBETA
                     {
                         TogglePanel();
                     }
-                }
-
-                // Đồng bộ liên tục với CSL Show More Limits và các mod kiểm tra bất kể thứ tự tải/mở GUI
-                if (Time.realtimeSinceStartup - m_lastDisplaySync > 1f)
-                {
-                    m_lastDisplaySync = Time.realtimeSinceStartup;
-                    ThirdPartyLimitIntegrations.PeriodicSyncAllLimitDisplays();
                 }
 
                 // Bảo đảm headroom trong Active Buffer không bị tràn (> 55,000)
@@ -159,9 +153,8 @@ namespace MorePropsBETA
         private static bool s_cslPatched = false;
         private static bool s_watchItPatched = false;
         private static bool s_showItPatched = false;
-        private static Type s_cslGuiType = null;
 
-        public const int VANILLA_DEFAULT_PROP_LIMIT = 65531; // Giới hạn gốc của Cities: Skylines trước khi cài mod
+        public const int VANILLA_DEFAULT_PROP_LIMIT = 65531; // Hằng số duy nhất: Giới hạn gốc của Cities: Skylines trước khi cài mod
 
         public static void TryPatchLimitMods(HarmonyLib.Harmony harmony)
         {
@@ -177,25 +170,26 @@ namespace MorePropsBETA
 
             try
             {
+                Type guiType = null;
                 foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                 {
                     if (asm.GetName().Name == "CSLShowMoreLimits")
                     {
-                        s_cslGuiType = asm.GetType("CSLShowMoreLimits.CSLShowMoreLimitsGUI");
+                        guiType = asm.GetType("CSLShowMoreLimits.CSLShowMoreLimitsGUI");
                         break;
                     }
                 }
 
-                if (s_cslGuiType != null)
+                if (guiType != null)
                 {
-                    MethodInfo mFetchMax = s_cslGuiType.GetMethod("FetchMaxSizeLimitSizeData", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    MethodInfo mFetchMax = guiType.GetMethod("FetchMaxSizeLimitSizeData", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     MethodInfo postFetchMax = typeof(ThirdPartyLimitIntegrations).GetMethod(nameof(CSL_FetchMaxSizeLimitSizeData_Postfix), BindingFlags.Public | BindingFlags.Static);
                     if (mFetchMax != null && postFetchMax != null)
                     {
                         harmony.Patch(mFetchMax, postfix: new HarmonyMethod(postFetchMax));
                     }
 
-                    MethodInfo mRefresh = s_cslGuiType.GetMethod("RefreshDisplayData", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    MethodInfo mRefresh = guiType.GetMethod("RefreshDisplayData", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     MethodInfo preRefresh = typeof(ThirdPartyLimitIntegrations).GetMethod(nameof(CSL_RefreshDisplayData_Prefix), BindingFlags.Public | BindingFlags.Static);
                     MethodInfo postRefresh = typeof(ThirdPartyLimitIntegrations).GetMethod(nameof(CSL_RefreshDisplayData_Postfix), BindingFlags.Public | BindingFlags.Static);
                     if (mRefresh != null)
@@ -205,7 +199,7 @@ namespace MorePropsBETA
                             postfix: postRefresh != null ? new HarmonyMethod(postRefresh) : null);
                     }
 
-                    MethodInfo mCheckColor = s_cslGuiType.GetMethod("CheckStatsForColorChange", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    MethodInfo mCheckColor = guiType.GetMethod("CheckStatsForColorChange", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     MethodInfo postColor = typeof(ThirdPartyLimitIntegrations).GetMethod(nameof(CSL_CheckStatsForColorChange_Postfix), BindingFlags.Public | BindingFlags.Static);
                     if (mCheckColor != null && postColor != null)
                     {
@@ -213,7 +207,7 @@ namespace MorePropsBETA
                     }
 
                     s_cslPatched = true;
-                    Log.Info("Successfully patched CSLShowMoreLimits for 262,144 prop capacity and dual-column display.");
+                    Log.Info("Successfully integrated CSLShowMoreLimits into native update lifecycle.");
                 }
             }
             catch (Exception ex)
@@ -251,7 +245,7 @@ namespace MorePropsBETA
                                 if (mCount != null && postUsage != null) harmony.Patch(mCount, postfix: new HarmonyMethod(postUsage));
                             }
                         }
-                        Log.Info($"WatchIt detected and patched for 256K Prop limits.");
+                        Log.Info("WatchIt detected and patched for dynamic prop monitoring.");
                         s_watchItPatched = true;
                         break;
                     }
@@ -292,7 +286,7 @@ namespace MorePropsBETA
                                 if (mCount != null && postUsage != null) harmony.Patch(mCount, postfix: new HarmonyMethod(postUsage));
                             }
                         }
-                        Log.Info($"ShowIt detected and patched for 256K Prop limits.");
+                        Log.Info("ShowIt detected and patched for dynamic prop monitoring.");
                         s_showItPatched = true;
                         break;
                     }
@@ -306,7 +300,11 @@ namespace MorePropsBETA
 
         public static void WatchIt_GetLimit_Postfix(ref int __result)
         {
-            __result = (int)ExtendedPropManager.MAX_EXTENDED_PROPS;
+            ExtendedPropManager extMgr = ExtendedPropManager.Instance;
+            if (extMgr != null)
+            {
+                __result = (int)extMgr.MaxProps; // Động từ manager
+            }
         }
 
         public static void WatchIt_GetUsage_Postfix(ref int __result)
@@ -314,126 +312,59 @@ namespace MorePropsBETA
             ExtendedPropManager extMgr = ExtendedPropManager.Instance;
             if (extMgr != null)
             {
-                __result = (int)extMgr.ExtendedPropCount;
+                __result = (int)extMgr.ExtendedPropCount; // Động từ live count
             }
         }
 
         /// <summary>
-        /// Đồng bộ định kỳ với mọi instance của CSL Show More Limits đang hiển thị trên màn hình.
-        /// Bất kể người dùng bật/tắt (Ctrl + L), tải save mới, đổi cửa sổ,... đều đảm bảo 100% hiển thị chuẩn.
+        /// Postfix cho CSLShowMoreLimits.FetchMaxSizeLimitSizeData:
+        /// Chạy tự động trong vòng đời tự cập nhật kích thước của CSL:
+        /// - #maxsize: Lấy ĐỘNG từ kích thước thực tế của ExtendedPropManager.MaxProps
+        /// - #defaultLimit: 65,531 (Giới hạn gốc của game trước khi unlock)
         /// </summary>
-        public static void PeriodicSyncAllLimitDisplays()
+        public static void CSL_FetchMaxSizeLimitSizeData_Postfix(object __instance)
         {
             try
             {
+                if (__instance == null) return;
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
-                if (extMgr == null) return;
+                uint dynamicMaxSize = extMgr != null ? extMgr.MaxProps : (Singleton<PropManager>.instance != null ? (uint)Singleton<PropManager>.instance.m_props.m_size : 262144u);
 
-                if (s_cslGuiType != null)
-                {
-                    UnityEngine.Object[] objs = UnityEngine.Object.FindObjectsOfType(s_cslGuiType);
-                    if (objs != null && objs.Length > 0)
-                    {
-                        foreach (object gui in objs)
-                        {
-                            SyncCSLShowMoreLimitsInstance(gui, extMgr);
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Silent catch for periodic polling
-            }
-        }
-
-        /// <summary>
-        /// Thực thi đồng bộ toàn diện trên một instance CSL Show More Limits:
-        /// 1. #maxsize: size sau khi unlock = 262,144 (MaxsizesInt[15])
-        /// 2. #defaultLimit: limit trước khi unlock = 65,531 (LimitsizesInt[15])
-        /// 3. #In Use & [#itemCount]: hiển thị đầy đủ hai cột như các thông số Net Segments, Buildings,... ("   {0}    |    [{1}]")
-        /// 4. Màu sắc: Xanh lá (<90%), Vàng cam (90-95%), Đỏ (>=95%)
-        /// 5. Bộ nhớ đệm dữ liệu: _tmpotherdata[5] = (int)inUse (bảo đảm an toàn cho Copy & Log)
-        /// </summary>
-        public static void SyncCSLShowMoreLimitsInstance(object guiInstance, ExtendedPropManager extMgr)
-        {
-            if (guiInstance == null || extMgr == null) return;
-
-            try
-            {
-                Type guiType = guiInstance.GetType();
-
-                // 1. Gán #maxsize sau khi unlock (262144) và #defaultLimit trước khi unlock (65531)
-                FieldInfo fLimits = guiType.GetField("LimitsizesInt", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                FieldInfo fMax = guiType.GetField("MaxsizesInt", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                FieldInfo fLimits = __instance.GetType().GetField("LimitsizesInt", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                FieldInfo fMax = __instance.GetType().GetField("MaxsizesInt", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 if (fLimits != null)
                 {
-                    object[] arr = fLimits.GetValue(guiInstance) as object[];
+                    object[] arr = fLimits.GetValue(__instance) as object[];
                     if (arr != null && arr.Length > 15) arr[15] = VANILLA_DEFAULT_PROP_LIMIT;
                 }
                 if (fMax != null)
                 {
-                    object[] arr = fMax.GetValue(guiInstance) as object[];
-                    if (arr != null && arr.Length > 15) arr[15] = (int)ExtendedPropManager.MAX_EXTENDED_PROPS;
+                    object[] arr = fMax.GetValue(__instance) as object[];
+                    if (arr != null && arr.Length > 15) arr[15] = (int)dynamicMaxSize;
                 }
 
-                // 2. Cập nhật nhãn cột trái: "User Props     [262144]  |  [65531]:"
-                FieldInfo fUserPropsText = guiType.GetField("m_UserPropsText", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                // Cập nhật nhãn tiêu đề: User Props [dynamicMaxSize] | [65531]:
+                FieldInfo fUserPropsText = __instance.GetType().GetField("m_UserPropsText", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 if (fUserPropsText != null)
                 {
-                    UILabel textLabel = fUserPropsText.GetValue(guiInstance) as UILabel;
+                    UILabel textLabel = fUserPropsText.GetValue(__instance) as UILabel;
                     if (textLabel != null)
                     {
-                        textLabel.text = string.Format("User Props     [{0}]  |  [{1}]:", ExtendedPropManager.MAX_EXTENDED_PROPS, VANILLA_DEFAULT_PROP_LIMIT);
-                    }
-                }
-
-                uint inUse = extMgr.ExtendedPropCount;
-                uint itemCount = inUse > 0 ? inUse + 1 : 0;
-
-                // 3. Gán bộ nhớ số nguyên nội bộ cho CSL: _tmpotherdata[5] = (int)inUse
-                FieldInfo fTmpOtherData = guiType.GetField("_tmpotherdata", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                if (fTmpOtherData != null)
-                {
-                    object[] arr = fTmpOtherData.GetValue(guiInstance) as object[];
-                    if (arr != null && arr.Length > 5)
-                    {
-                        arr[5] = (int)inUse;
-                    }
-                }
-
-                // 4. Gán nhãn cột phải hiển thị đầy đủ cả hai cột: #In Use và [#itemCount]
-                // Định dạng "   {0}    |    [{1}]" chuẩn xác theo Net Segments, Net Nodes, Buildings, Vehicles Active,...
-                FieldInfo fUserPropsValue = guiType.GetField("m_UserPropsValue", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                if (fUserPropsValue != null)
-                {
-                    UILabel label = fUserPropsValue.GetValue(guiInstance) as UILabel;
-                    if (label != null)
-                    {
-                        label.text = string.Format("   {0}    |    [{1}]", inUse, itemCount);
-
-                        // 5. Màu sắc chuẩn CSL Show More Limits theo tỉ lệ 256K
-                        float pct = (float)inUse / (float)ExtendedPropManager.MAX_EXTENDED_PROPS;
-                        if (pct >= 0.95f)
-                            label.textColor = new Color32(255, 0, 0, 255);
-                        else if (pct >= 0.90f)
-                            label.textColor = new Color32(255, 204, 0, 255);
-                        else
-                            label.textColor = new Color32(0, 204, 0, 255);
+                        textLabel.text = string.Format("User Props     [{0}]  |  [{1}]:", dynamicMaxSize, VANILLA_DEFAULT_PROP_LIMIT);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception("SyncCSLShowMoreLimitsInstance", ex);
+                Log.Exception("CSL_FetchMaxSizeLimitSizeData_Postfix", ex);
             }
         }
 
-        public static void CSL_FetchMaxSizeLimitSizeData_Postfix(object __instance)
-        {
-            SyncCSLShowMoreLimitsInstance(__instance, ExtendedPropManager.Instance);
-        }
-
+        /// <summary>
+        /// Prefix cho CSLShowMoreLimits.RefreshDisplayData:
+        /// Chạy tự động theo chu kỳ refresh tự nhiên của CSL (AutoRefresh 3s hoặc nút Manual Refresh):
+        /// Cung cấp số liệu động thực tế vào bộ đệm nội bộ _tmpotherdata[5] của CSL.
+        /// </summary>
         public static void CSL_RefreshDisplayData_Prefix(object __instance)
         {
             try
@@ -457,14 +388,73 @@ namespace MorePropsBETA
             }
         }
 
+        /// <summary>
+        /// Postfix cho CSLShowMoreLimits.RefreshDisplayData:
+        /// Hiển thị đầy đủ cả hai cột động:
+        /// - #In Use: extMgr.ExtendedPropCount (số prop thực tế đã đặt trên bản đồ)
+        /// - #itemCount: extMgr.DynamicItemCount (tổng số slot item đang dùng theo chuẩn m_size - m_unusedCount)
+        /// </summary>
         public static void CSL_RefreshDisplayData_Postfix(object __instance)
         {
-            SyncCSLShowMoreLimitsInstance(__instance, ExtendedPropManager.Instance);
+            try
+            {
+                ExtendedPropManager extMgr = ExtendedPropManager.Instance;
+                if (extMgr == null || __instance == null) return;
+
+                uint inUse = extMgr.ExtendedPropCount;
+                uint itemCount = extMgr.DynamicItemCount;
+
+                FieldInfo fUserPropsValue = __instance.GetType().GetField("m_UserPropsValue", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (fUserPropsValue != null)
+                {
+                    UILabel label = fUserPropsValue.GetValue(__instance) as UILabel;
+                    if (label != null)
+                    {
+                        label.text = string.Format("   {0}    |    [{1}]", inUse, itemCount);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("CSL_RefreshDisplayData_Postfix", ex);
+            }
         }
 
+        /// <summary>
+        /// Postfix cho CSLShowMoreLimits.CheckStatsForColorChange:
+        /// Chạy tự động ngay sau khi CSL refresh dữ liệu:
+        /// Cập nhật màu sắc động dựa trên tỉ lệ thực tế giữa inUse và MaxProps.
+        /// </summary>
         public static void CSL_CheckStatsForColorChange_Postfix(object __instance)
         {
-            SyncCSLShowMoreLimitsInstance(__instance, ExtendedPropManager.Instance);
+            try
+            {
+                ExtendedPropManager extMgr = ExtendedPropManager.Instance;
+                if (extMgr == null || __instance == null) return;
+
+                uint inUse = extMgr.ExtendedPropCount;
+                uint maxProps = extMgr.MaxProps;
+
+                FieldInfo fUserPropsValue = __instance.GetType().GetField("m_UserPropsValue", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (fUserPropsValue != null)
+                {
+                    UILabel label = fUserPropsValue.GetValue(__instance) as UILabel;
+                    if (label != null)
+                    {
+                        float pct = maxProps > 0 ? (float)inUse / (float)maxProps : 0f;
+                        if (pct >= 0.95f)
+                            label.textColor = new Color32(255, 0, 0, 255);
+                        else if (pct >= 0.90f)
+                            label.textColor = new Color32(255, 204, 0, 255);
+                        else
+                            label.textColor = new Color32(0, 204, 0, 255);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("CSL_CheckStatsForColorChange_Postfix", ex);
+            }
         }
     }
 }

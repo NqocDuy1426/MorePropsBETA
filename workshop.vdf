@@ -57,10 +57,10 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.4-BETA: CSL SHOW MORE LIMITS & MONITOR STANDARDIZATION:
-1. Standardized CSL Show More Limits display format: Synchronized internal data buffer _tmpotherdata[5] with 256K extended prop count, perfectly aligning 'User Props' with 'Trees' and all other limit rows.
-2. Restored native CSL green/yellow/red color-coding palette (0, 204, 0 for <90%, 255, 204, 0 for 90-95%, 255, 0, 0 for >95%) eliminating jarring white text and formatting deviations.
-3. Fixed CSL Show More Limits Copy Clipboard and Log Data buttons to export the true 256K prop count without formatting exceptions.
-4. Added graceful discovery and integration hooks for third-party limit monitor mods (Watch It! / Show It!)."
+	"changenote"		"v1.0.4-BETA: DYNAMIC LIFECYCLE MONITORING & DUAL-COLUMN HARMONIZATION:
+1. 100% Dynamic data pipeline: #maxsize, #In Use, and #itemCount are queried live from ExtendedPropManager without hardcoded constants (leaving 65,531 as the sole default vanilla limit benchmark).
+2. Native lifecycle integration: Completely eliminated external polling loops; CSL Show More Limits and monitor mods self-update naturally via their own coroutines, timers, and manual refresh events.
+3. Dual-column display parity: Formatted 'User Props' with dual-column inUse and itemCount ('4,059 | [4,060]') perfectly matching 'Net Segments', 'Buildings', and 'Vehicles Active'.
+4. Seamless compatibility hooks for Watch It! and Show It! limit displays."
 }
 

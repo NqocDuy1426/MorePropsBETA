@@ -59,6 +59,8 @@ namespace MorePropsBETA
         }
 
         public uint ExtendedPropCount => m_extendedCount;
+        public uint MaxProps => m_props256k != null ? (uint)m_props256k.Length : MAX_EXTENDED_PROPS;
+        public uint DynamicItemCount => m_props256k != null ? m_extendedCount + 1u : 0u;
 
         public static void EnsureInitialized()
         {
