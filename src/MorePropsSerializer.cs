@@ -196,66 +196,107 @@ namespace MorePropsBETA
         private static void ImportVanillaPropsIntoExtended(ExtendedPropManager extMgr)
         {
             PropManager pm = Singleton<PropManager>.instance;
-            if (pm == null) return;
+            if (pm == null || extMgr == null) return;
 
-            int imported = 0;
-            for (ushort vId = 1; vId < pm.m_props.m_size; vId++)
+            extMgr.m_isInternalOperation = true;
+            try
             {
-                ref PropInstance vProp = ref pm.m_props.m_buffer[vId];
-                if ((vProp.m_flags & (ushort)PropInstance.Flags.Created) != 0)
+                int imported = 0;
+                for (ushort vId = 1; vId < pm.m_props.m_size; vId++)
                 {
-                    if (extMgr.AllocateExtendedProp(out uint extId))
+                    ref PropInstance vProp = ref pm.m_props.m_buffer[vId];
+                    if ((vProp.m_flags & (ushort)PropInstance.Flags.Created) != 0)
                     {
-                        ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
-                        extProp.m_position = vProp.Position;
-                        extProp.m_angle = vProp.Angle;
-                        extProp.m_flags = vProp.m_flags;
-                        extProp.m_infoIndex = vProp.m_infoIndex;
-                        extProp.m_mountedVanillaId = vId;
-                        extProp.m_lastAccessTime = Time.realtimeSinceStartup;
+                        if (extMgr.AllocateExtendedProp(out uint extId))
+                        {
+                            ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
+                            extProp.m_position = vProp.Position;
+                            extProp.m_angle = vProp.Angle;
+                            extProp.m_flags = vProp.m_flags;
+                            extProp.m_infoIndex = vProp.m_infoIndex;
+                            extProp.m_mountedVanillaId = vId;
+                            extProp.m_lastAccessTime = Time.realtimeSinceStartup;
 
-                        extMgr.m_vanillaToExtendedId[vId] = extId;
-                        extMgr.m_extendedToVanillaId[extId] = vId;
+                            extMgr.m_vanillaToExtendedId[vId] = extId;
+                            extMgr.m_extendedToVanillaId[extId] = vId;
 
-                        extMgr.AddToGrid32(extId, extProp.m_position);
-                        imported++;
+                            extMgr.AddToGrid32(extId, extProp.m_position);
+
+                            // Đảm bảo tính toán đúng chiều cao mặt đất (Terrain Height) và cập nhật bitmask renderer
+                            pm.m_props.m_buffer[vId].CalculateProp(vId);
+                            if (pm.m_updatedProps != null && (vId >> 6) < pm.m_updatedProps.Length)
+                            {
+                                pm.m_updatedProps[vId >> 6] |= 1UL << (vId & 63);
+                                pm.m_propsUpdated = true;
+                            }
+
+                            imported++;
+                        }
                     }
                 }
-            }
 
-            Debug.Log($"[MorePropsBETA] Imported {imported} existing vanilla props into 256K storage.");
+                Log.Info($"Imported {imported} existing vanilla props into 256K storage.");
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("ImportVanillaPropsIntoExtended", ex);
+            }
+            finally
+            {
+                extMgr.m_isInternalOperation = false;
+            }
         }
 
         private static void LinkExistingVanillaProps(ExtendedPropManager extMgr)
         {
             PropManager pm = Singleton<PropManager>.instance;
-            if (pm == null) return;
+            if (pm == null || extMgr == null) return;
 
-            for (ushort vId = 1; vId < pm.m_props.m_size; vId++)
+            extMgr.m_isInternalOperation = true;
+            try
             {
-                ref PropInstance vProp = ref pm.m_props.m_buffer[vId];
-                if ((vProp.m_flags & (ushort)PropInstance.Flags.Created) != 0)
+                for (ushort vId = 1; vId < pm.m_props.m_size; vId++)
                 {
-                    // Tìm kiếm prop tương ứng trong m_props256k theo vị trí gần nhất
-                    Vector3 pos = vProp.Position;
-                    int gx = ExtendedPropManager.WorldToGridX(pos.x);
-                    int gz = ExtendedPropManager.WorldToGridZ(pos.z);
-                    uint cell = (uint)(gz * ExtendedPropManager.PROPGRID_RESOLUTION + gx);
-
-                    uint extId = extMgr.m_propGrid32[cell];
-                    while (extId != 0)
+                    ref PropInstance vProp = ref pm.m_props.m_buffer[vId];
+                    if ((vProp.m_flags & (ushort)PropInstance.Flags.Created) != 0)
                     {
-                        ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
-                        if (extProp.IsCreated && !extProp.IsMounted && (extProp.m_position - pos).sqrMagnitude < 0.01f)
+                        // Tìm kiếm prop tương ứng trong m_props256k theo vị trí gần nhất
+                        Vector3 pos = vProp.Position;
+                        int gx = ExtendedPropManager.WorldToGridX(pos.x);
+                        int gz = ExtendedPropManager.WorldToGridZ(pos.z);
+                        uint cell = (uint)(gz * ExtendedPropManager.PROPGRID_RESOLUTION + gx);
+
+                        uint extId = extMgr.m_propGrid32[cell];
+                        while (extId != 0)
                         {
-                            extProp.m_mountedVanillaId = vId;
-                            extMgr.m_vanillaToExtendedId[vId] = extId;
-                            extMgr.m_extendedToVanillaId[extId] = vId;
-                            break;
+                            ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
+                            if (extProp.IsCreated && !extProp.IsMounted && (extProp.m_position - pos).sqrMagnitude < 0.01f)
+                            {
+                                extProp.m_mountedVanillaId = vId;
+                                extMgr.m_vanillaToExtendedId[vId] = extId;
+                                extMgr.m_extendedToVanillaId[extId] = vId;
+
+                                // Đảm bảo tính toán đúng chiều cao mặt đất (Terrain Height) và cập nhật bitmask renderer
+                                pm.m_props.m_buffer[vId].CalculateProp(vId);
+                                if (pm.m_updatedProps != null && (vId >> 6) < pm.m_updatedProps.Length)
+                                {
+                                    pm.m_updatedProps[vId >> 6] |= 1UL << (vId & 63);
+                                    pm.m_propsUpdated = true;
+                                }
+                                break;
+                            }
+                            extId = extProp.m_nextGridProp;
                         }
-                        extId = extProp.m_nextGridProp;
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("LinkExistingVanillaProps", ex);
+            }
+            finally
+            {
+                extMgr.m_isInternalOperation = false;
             }
         }
     }

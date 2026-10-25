@@ -12,6 +12,8 @@ namespace MorePropsBETA
         [HarmonyPostfix]
         public static void EndRenderingImplPostfix(RenderManager.CameraInfo cameraInfo)
         {
+            if (Singleton<LoadingManager>.instance == null || !Singleton<LoadingManager>.instance.m_loadingComplete) return;
+
             ExtendedPropManager extMgr = ExtendedPropManager.Instance;
             if (extMgr == null || extMgr.ExtendedPropCount == 0) return;
 

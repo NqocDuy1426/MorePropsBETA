@@ -45,7 +45,18 @@ namespace MorePropsBETA
         private uint m_extendedCount;
 
         // Cờ nội bộ ngăn chặn đệ quy khi Mount / Unmount gọi API của PropManager
-        public bool m_isInternalOperation = false;
+        private int m_internalOperationDepth = 0;
+        public bool m_isInternalOperation
+        {
+            get => m_internalOperationDepth > 0;
+            set
+            {
+                if (value)
+                    m_internalOperationDepth++;
+                else if (m_internalOperationDepth > 0)
+                    m_internalOperationDepth--;
+            }
+        }
 
         public uint ExtendedPropCount => m_extendedCount;
 
@@ -83,7 +94,7 @@ namespace MorePropsBETA
             m_freeList256k[MAX_EXTENDED_PROPS - 1] = 0;
             m_freeListHead = 1;
             m_extendedCount = 0;
-            m_isInternalOperation = false;
+            m_internalOperationDepth = 0;
         }
 
         public static int WorldToGridX(float posX)
@@ -208,7 +219,16 @@ namespace MorePropsBETA
                 extProp.m_mountedVanillaId = vanillaId;
                 extProp.m_lastAccessTime = Time.realtimeSinceStartup;
 
-                pm.UpdatePropRenderer(vanillaId, true);
+                // Tính toán chính xác độ cao mặt đất (Terrain Height) để tránh prop bay lơ lửng tại Y = 0
+                pm.m_props.m_buffer[vanillaId].CalculateProp(vanillaId);
+
+                // Thay vì gọi pm.UpdatePropRenderer gây đệ quy UpdateProps,
+                // đánh dấu vào m_updatedProps bitmask để engine tự động chạy cập nhật renderer ở frame tiếp theo
+                if (pm.m_updatedProps != null && (vanillaId >> 6) < pm.m_updatedProps.Length)
+                {
+                    pm.m_updatedProps[vanillaId >> 6] |= 1UL << (vanillaId & 63);
+                    pm.m_propsUpdated = true;
+                }
             }
             catch (Exception ex)
             {
@@ -304,6 +324,7 @@ namespace MorePropsBETA
 
         public void MountPropsInArea(Vector3 center, float radius)
         {
+            m_isInternalOperation = true;
             try
             {
                 int minX = WorldToGridX(center.x - radius);
@@ -347,10 +368,15 @@ namespace MorePropsBETA
             {
                 Log.Exception("MountPropsInArea", ex);
             }
+            finally
+            {
+                m_isInternalOperation = false;
+            }
         }
 
         public void MountPropsInRect(float minX, float minZ, float maxX, float maxZ)
         {
+            m_isInternalOperation = true;
             try
             {
                 int gx0 = WorldToGridX(minX);
@@ -391,6 +417,10 @@ namespace MorePropsBETA
             catch (Exception ex)
             {
                 Log.Exception("MountPropsInRect", ex);
+            }
+            finally
+            {
+                m_isInternalOperation = false;
             }
         }
 

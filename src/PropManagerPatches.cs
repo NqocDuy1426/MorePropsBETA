@@ -203,9 +203,19 @@ namespace MorePropsBETA
             try
             {
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
-                if (extMgr != null)
+                if (extMgr == null || extMgr.m_isInternalOperation)
+                {
+                    return;
+                }
+
+                extMgr.m_isInternalOperation = true;
+                try
                 {
                     extMgr.MountPropsInRect(minX, minZ, maxX, maxZ);
+                }
+                finally
+                {
+                    extMgr.m_isInternalOperation = false;
                 }
             }
             catch (Exception ex)
@@ -308,8 +318,7 @@ namespace MorePropsBETA
 
             hit = Vector3.zero;
             propIndex = 0;
-            __result = false;
-            return false;
+            return true; // Cho phép vanilla RayCast thực thi bình thường khi không trúng extended prop nào
         }
     }
 
