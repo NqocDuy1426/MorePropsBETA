@@ -163,6 +163,38 @@ namespace MorePropsBETA
             }
         }
 
+        public void RebuildFreeListAndCount()
+        {
+            uint count = 0;
+            m_freeListHead = 0;
+            uint prevFree = 0;
+
+            for (uint i = 1; i < MAX_EXTENDED_PROPS; i++)
+            {
+                if (m_props256k[i].IsCreated)
+                {
+                    m_freeList256k[i] = 0;
+                    count++;
+                }
+                else
+                {
+                    if (m_freeListHead == 0)
+                    {
+                        m_freeListHead = i;
+                    }
+                    else
+                    {
+                        m_freeList256k[prevFree] = i;
+                    }
+                    prevFree = i;
+                    m_freeList256k[i] = 0;
+                }
+            }
+
+            m_extendedCount = count;
+            Log.Info($"Rebuilt ExtendedProp free list: {count} active props, next free ID={m_freeListHead}");
+        }
+
         // ==========================================
         // CƠ CHẾ HOT-SWAPPING (MOUNT / UNMOUNT)
         // ==========================================
@@ -436,32 +468,82 @@ namespace MorePropsBETA
         {
             try
             {
-                float preserveRadiusSqr = preserveRadius * preserveRadius;
+                float[] thresholds = new float[] { preserveRadius, preserveRadius * 0.5f, 60f, 5f };
                 int evicted = 0;
 
-                for (int i = 1; i < 65536; i++)
+                for (int t = 0; t < thresholds.Length; t++)
                 {
                     if (evicted >= targetEvictCount) break;
 
-                    ushort vId = (ushort)i;
+                    float radiusSqr = thresholds[t] * thresholds[t];
 
-                    uint extId = m_vanillaToExtendedId[vId];
-                    if (extId == 0) continue;
-
-                    ref ExtendedPropInstance extProp = ref m_props256k[extId];
-                    Vector3 diff = extProp.m_position - preserveCenter;
-                    diff.y = 0f;
-
-                    if (diff.sqrMagnitude > preserveRadiusSqr)
+                    for (int i = 1; i < 65536; i++)
                     {
-                        UnmountProp(vId, true);
-                        evicted++;
+                        if (evicted >= targetEvictCount) break;
+
+                        ushort vId = (ushort)i;
+                        uint extId = m_vanillaToExtendedId[vId];
+                        if (extId == 0) continue;
+
+                        ref ExtendedPropInstance extProp = ref m_props256k[extId];
+                        Vector3 diff = extProp.m_position - preserveCenter;
+                        diff.y = 0f;
+
+                        if (diff.sqrMagnitude > radiusSqr)
+                        {
+                            UnmountProp(vId, true);
+                            evicted++;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
                 Log.Exception("EvictDistantProps", ex);
+            }
+        }
+
+        public void EnsureBufferHeadroom(Vector3 focusPoint, int targetCount = 48000)
+        {
+            try
+            {
+                PropManager pm = Singleton<PropManager>.instance;
+                if (pm == null || pm.m_propCount <= targetCount) return;
+
+                int needToEvict = pm.m_propCount - targetCount;
+                EvictDistantProps(focusPoint, 600f, needToEvict);
+
+                if (pm.m_propCount > targetCount)
+                {
+                    EvictDistantProps(focusPoint, 200f, pm.m_propCount - targetCount);
+                }
+                if (pm.m_propCount > targetCount)
+                {
+                    EvictDistantProps(focusPoint, 5f, pm.m_propCount - targetCount);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("EnsureBufferHeadroom", ex);
+            }
+        }
+
+        public void SyncAllFromVanilla()
+        {
+            try
+            {
+                for (int i = 1; i < 65536; i++)
+                {
+                    ushort vId = (ushort)i;
+                    if (m_vanillaToExtendedId[vId] != 0)
+                    {
+                        SyncFromVanilla(vId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("SyncAllFromVanilla", ex);
             }
         }
 

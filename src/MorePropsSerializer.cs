@@ -22,6 +22,8 @@ namespace MorePropsBETA
 
             try
             {
+                extMgr.SyncAllFromVanilla();
+
                 using (MemoryStream ms = new MemoryStream())
                 using (BinaryWriter writer = new BinaryWriter(ms))
                 {
@@ -184,6 +186,9 @@ namespace MorePropsBETA
                     // 3. Liên kết các prop vanilla đã được game nạp sẵn vào buffer với mảng 256K
                     LinkExistingVanillaProps(extMgr);
 
+                    // 4. Tái cấu trúc FreeList và đồng bộ chính xác ExtendedPropCount
+                    extMgr.RebuildFreeListAndCount();
+
                     Log.Info($"Successfully restored {totalProps} extended props.");
                 }
             }
@@ -288,6 +293,32 @@ namespace MorePropsBETA
                                 break;
                             }
                             extId = extProp.m_nextGridProp;
+                        }
+
+                        // Nếu prop vanilla chưa được ánh xạ (do lệch tọa độ hoặc do mod khác thêm vào),
+                        // cấp phát một ID extended mới để bảo đảm 100% prop đều được quản lý & evict bình thường
+                        if (extMgr.m_vanillaToExtendedId[vId] == 0)
+                        {
+                            if (extMgr.AllocateExtendedProp(out uint newExtId))
+                            {
+                                ref ExtendedPropInstance newExtProp = ref extMgr.m_props256k[newExtId];
+                                newExtProp.m_position = pos;
+                                newExtProp.m_angle = vProp.Angle;
+                                newExtProp.m_flags = vProp.m_flags;
+                                newExtProp.m_infoIndex = vProp.m_infoIndex;
+                                newExtProp.m_mountedVanillaId = vId;
+                                newExtProp.m_lastAccessTime = Time.realtimeSinceStartup;
+
+                                extMgr.m_vanillaToExtendedId[vId] = newExtId;
+                                extMgr.m_extendedToVanillaId[newExtId] = vId;
+                                extMgr.AddToGrid32(newExtId, pos);
+
+                                if (pm.m_updatedProps != null && (vId >> 6) < pm.m_updatedProps.Length)
+                                {
+                                    pm.m_updatedProps[vId >> 6] |= 1UL << (vId & 63);
+                                    pm.m_propsUpdated = true;
+                                }
+                            }
                         }
                     }
                 }

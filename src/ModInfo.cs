@@ -12,7 +12,7 @@ namespace MorePropsBETA
     {
         public const string HARMONY_ID = "com.ngocduy.morepropsbeta";
         public const string MOD_NAME = "More Props BETA";
-        public const string MOD_VERSION = "1.0.0-BETA";
+        public const string MOD_VERSION = "1.0.3-BETA";
         public const string MOD_DESCRIPTION = "Expands the prop limit to 262,144 (256K) with Active Window Hot-Swapping for 100% Move It compatibility.";
 
         public string Name => MOD_NAME;
@@ -56,6 +56,8 @@ namespace MorePropsBETA
             CheckModConflicts();
             ExtendedPropManager.EnsureInitialized();
             DynamicMoveItHook.TryHookMoveIt();
+            ThirdPartyLimitIntegrations.TryPatchLimitMods(new HarmonyLib.Harmony(ModInfo.HARMONY_ID));
+            ExtendedPropManager.Instance?.EnsureBufferHeadroom(Camera.main != null ? Camera.main.transform.position : Vector3.zero, ExtendedPropManager.SAFE_VANILLA_THRESHOLD);
 
             if (s_hotkeyGo == null)
             {
@@ -113,6 +115,7 @@ namespace MorePropsBETA
             {
                 HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
+                ThirdPartyLimitIntegrations.TryPatchLimitMods(harmony);
                 s_isPatched = true;
                 Log.Info("Harmony patches applied successfully.");
             }

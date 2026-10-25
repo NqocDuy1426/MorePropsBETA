@@ -19,6 +19,7 @@ namespace MorePropsBETA
         {
             try
             {
+                ExtendedPropManager.EnsureInitialized();
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
                 if (extMgr != null)
                 {
@@ -43,6 +44,7 @@ namespace MorePropsBETA
             prop = 0;
             try
             {
+                ExtendedPropManager.EnsureInitialized();
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
                 if (extMgr == null || extMgr.m_isInternalOperation)
                 {
@@ -59,8 +61,7 @@ namespace MorePropsBETA
                 PropManager pm = Singleton<PropManager>.instance;
                 if (pm != null && pm.m_propCount >= ExtendedPropManager.SAFE_VANILLA_THRESHOLD)
                 {
-                    // Unmount bớt các prop ở xa để luôn có sẵn slot trống cho công cụ đặt prop
-                    extMgr.EvictDistantProps(position, 600f, 1000);
+                    extMgr.EnsureBufferHeadroom(position, ExtendedPropManager.SAFE_VANILLA_THRESHOLD);
                 }
             }
             catch (Exception ex)

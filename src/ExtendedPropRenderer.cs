@@ -45,7 +45,7 @@ namespace MorePropsBETA
                             if (prop.IsCreated && !prop.IsMounted && (prop.m_flags & (ushort)PropInstance.Flags.Hidden) == 0)
                             {
                                 PropInfo info = PrefabCollection<PropInfo>.GetPrefab(prop.m_infoIndex);
-                                if (info != null)
+                                if (info != null && cameraInfo.CheckRenderDistance(prop.m_position, info.m_maxRenderDistance))
                                 {
                                     float scale = (info.m_minScale + info.m_maxScale) * 0.5f;
                                     Color color = info.GetColor(ref randomizer);
