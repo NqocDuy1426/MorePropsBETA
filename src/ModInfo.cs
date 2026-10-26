@@ -82,14 +82,20 @@ namespace MorePropsBETA
                 {
                     if (!plugin.isEnabled) continue;
 
-                    if (plugin.name.Contains("ExtendedManagersLibrary") || plugin.name.Contains("EML") || plugin.publishedFileID.AsUInt64 == 2696146766)
+                    ulong pubId = plugin.publishedFileID.AsUInt64;
+                    bool isEML = plugin.name.Contains("ExtendedManagersLibrary") || plugin.name.Contains("EML") || pubId == 2696146766;
+                    bool isQuayhuanPA = pubId == 2696149201 || (plugin.name.Equals("PropAnarchy", StringComparison.OrdinalIgnoreCase));
+
+                    if (isEML || isQuayhuanPA)
                     {
-                        string warnMsg = "Detected 'Extended Managers Library' (EML) enabled. This is incompatible with More Props BETA.";
+                        string conflictedMod = isEML ? "Extended Managers Library (EML)" : "Quayhuan's Prop Anarchy (requires EML)";
+                        string warnMsg = $"Detected '{conflictedMod}' enabled. This is incompatible with More Props BETA.";
                         Log.Warning(warnMsg);
                         UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel").SetMessage(
                             "Incompatible Mod Detected",
-                            "More Props BETA phát hiện bạn đang bật 'Extended Managers Library' (EML). " +
-                            "Hai mod này không thể chạy song song vì đều can thiệp sâu vào PropManager. Vui lòng tắt một trong hai mod để tránh hỏng file save!",
+                            $"More Props BETA detected '{conflictedMod}' enabled.\n\n" +
+                            "This mod requires EML and cannot run alongside More Props BETA. " +
+                            "Please use 'Prop Control' (by algernon) or classic 'Prop & Tree Anarchy' instead!",
                             true
                         );
                         break;

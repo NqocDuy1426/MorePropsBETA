@@ -21,7 +21,7 @@ In vanilla Cities: Skylines, [b]PropManager.MAX_PROPS_LIMIT is hard-coded at 65,
 [list]
 [*] [b]Vanilla Limit:[/b] 65,536 Props
 [*] [b]More Props BETA Limit:[/b] [b]262,144 Props (256K / 2^18)[/b]
-[*] [b]Compatibility:[/b] [b]100% Native support for Move It, Prop Line Tool, Find It! 2, Forest Brush, Prop Anarchy[/b]
+[*] [b]Compatibility:[/b] [b]100% Native support for Move It, Prop Line Tool, Find It! 2, Forest Brush, Prop Control, Prop & Tree Anarchy[/b]
 [*] [b]Save Safety:[/b] Dual-stream serialization with Asset String Table (immune to asset re-index)
 [/list]
 
@@ -52,8 +52,8 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [h1]🔧 COMPATIBILITY & REQUIREMENTS[/h1]
 [list]
 [*] [b]Harmony 2.x:[/b] Self-contained via CitiesHarmony.
-[*] [b]Incompatible Mods:[/b] Extended Managers Library (EML). (Do not run both simultaneously).
-[*] [b]Fully Compatible:[/b] Move It, Prop Line Tool (PLT), Find It! 2, Prop Anarchy, Forest Brush, Network Multitool, Node Controller, TM:PE.
+[*] [b]Incompatible Mods:[/b] Extended Managers Library (EML) and Quayhuan's Prop Anarchy (which hard-requires EML). (Do not run simultaneously).
+[*] [b]Fully Compatible:[/b] Move It, Prop Line Tool (PLT), Find It! 2, Prop Control (by algernon), classic Prop & Tree Anarchy (by BloodyPenguin), Forest Brush, Network Multitool, Node Controller, TM:PE.
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
