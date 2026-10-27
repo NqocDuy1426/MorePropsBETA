@@ -7,7 +7,7 @@ using ColossalFramework.UI;
 
 namespace MorePropsBETA
 {
-    public sealed class LimitDisplayPanel : UIPanel
+    internal sealed class LimitDisplayPanel : UIPanel
     {
         private UILabel m_titleLabel;
         private UILabel m_vanillaBufferLabel;
@@ -88,7 +88,7 @@ namespace MorePropsBETA
         }
     }
 
-    public sealed class LimitDisplayHotkeyListener : MonoBehaviour
+    internal sealed class LimitDisplayHotkeyListener : MonoBehaviour
     {
         private LimitDisplayPanel m_panel;
         private float m_lastHeadroomCheck = 0f;
@@ -148,7 +148,7 @@ namespace MorePropsBETA
         }
     }
 
-    public static class ThirdPartyLimitIntegrations
+    internal static class ThirdPartyLimitIntegrations
     {
         private static bool s_cslPatched = false;
         private static bool s_watchItPatched = false;

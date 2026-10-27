@@ -6,7 +6,7 @@ using UnityEngine;
 namespace MorePropsBETA
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct ExtendedPropInstance
+    internal struct ExtendedPropInstance
     {
         public Vector3 m_position;
         public float m_angle;
@@ -20,7 +20,7 @@ namespace MorePropsBETA
         public bool IsMounted => m_mountedVanillaId != 0;
     }
 
-    public sealed class ExtendedPropManager
+    internal sealed class ExtendedPropManager
     {
         public const uint MAX_EXTENDED_PROPS = 262144; // 256K = 1 << 18
         public const int PROPGRID_RESOLUTION = 270;

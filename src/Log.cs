@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace MorePropsBETA
 {
-    public static class Log
+    internal static class Log
     {
         private const string Prefix = "[MorePropsBETA] ";
         private static readonly object s_lock = new object();

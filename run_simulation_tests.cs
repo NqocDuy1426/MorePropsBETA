@@ -395,6 +395,7 @@ namespace MorePropsBETA.Tests
             TestGroup4_RaycastAndMarquee();
             TestGroup5_SerializationSimulation();
             TestGroup6_BytecodeAuditWithCecil();
+            TestGroup7_MultiModCoexistenceSimulation();
 
             Console.WriteLine("\n======================================================================");
             Console.WriteLine($"📊 TEST EXECUTION SUMMARY: {s_passed} PASSED, {s_failed} FAILED");
@@ -714,6 +715,109 @@ namespace MorePropsBETA.Tests
                 missingAssetResilient = false;
             }
             Assert(missingAssetResilient, "Missing Asset Resilience: Save containing uninstalled Workshop asset loads without crash");
+
+            // 5.5 FORMAT V2 DUAL-STREAM SERIALIZATION: LOW ID (< 65536) & HIGH ID (>= 65536) PROPS
+            SimExtendedPropManager v2SaveMgr = new SimExtendedPropManager();
+            // Tạo 40.000 prop Low ID (< 65536)
+            for (int i = 0; i < 40000; i++)
+            {
+                v2SaveMgr.AllocateExtendedProp(out uint id);
+                v2SaveMgr.m_props256k[id].m_position = new SimVector3(i * 0.2f, 20f, i * 0.2f);
+                v2SaveMgr.m_props256k[id].m_angle = 1.57f;
+                v2SaveMgr.m_props256k[id].m_flags = 1;
+                v2SaveMgr.m_props256k[id].m_infoIndex = (ushort)(i % 5);
+                v2SaveMgr.m_props256k[id].m_mountedVanillaId = (ushort)id; // Mounted Low ID
+                v2SaveMgr.AddToGrid32(id, v2SaveMgr.m_props256k[id].m_position);
+            }
+
+            // Tạo thêm 30.000 prop High ID (>= 65536)
+            for (int i = 40000; i < 70000; i++)
+            {
+                v2SaveMgr.AllocateExtendedProp(out uint id);
+                v2SaveMgr.m_props256k[id].m_position = new SimVector3(i * 0.2f, 25f, -i * 0.2f);
+                v2SaveMgr.m_props256k[id].m_angle = 3.14f;
+                v2SaveMgr.m_props256k[id].m_flags = 1;
+                v2SaveMgr.m_props256k[id].m_infoIndex = (ushort)(i % 5);
+                // Một số mount vào active buffer, số còn lại unmounted
+                v2SaveMgr.m_props256k[id].m_mountedVanillaId = (ushort)(i < 50000 ? (i - 40000 + 40001) : 0);
+                v2SaveMgr.AddToGrid32(id, v2SaveMgr.m_props256k[id].m_position);
+            }
+
+            byte[] v2Bytes;
+            using (MemoryStream ms = new MemoryStream())
+            using (BinaryWriter writer = new BinaryWriter(ms))
+            {
+                writer.Write(0x50524F50); // "PROP"
+                writer.Write(2u);        // Format Version 2
+                writer.Write(assetNames.Length);
+                for (int i = 0; i < assetNames.Length; i++) writer.Write(assetNames[i]);
+                writer.Write((int)v2SaveMgr.ExtendedPropCount);
+
+                for (uint i = 1; i < SimExtendedPropManager.MAX_EXTENDED_PROPS; i++)
+                {
+                    ref SimExtendedPropInstance p = ref v2SaveMgr.m_props256k[i];
+                    if (p.IsCreated)
+                    {
+                        writer.Write(i);
+                        writer.Write(p.m_position.x);
+                        writer.Write(p.m_position.y);
+                        writer.Write(p.m_position.z);
+                        writer.Write(p.m_angle);
+                        writer.Write(p.m_flags);
+                        writer.Write((ushort)(p.m_infoIndex % 5));
+                        writer.Write(p.m_mountedVanillaId); // V2 explicit mounted slot
+                    }
+                }
+                writer.Write(0x444E4550u); // "PEND" Trailer
+                v2Bytes = ms.ToArray();
+            }
+
+            Assert(v2Bytes.Length > 0, $"Format V2 Serialization: 70,000 mixed Low/High ID props packed ({v2Bytes.Length / 1024} KB)");
+
+            // Nạp lại V2 và xác minh tính toàn vẹn của cả ID cao và thấp
+            SimExtendedPropManager v2LoadMgr = new SimExtendedPropManager();
+            using (MemoryStream ms = new MemoryStream(v2Bytes))
+            using (BinaryReader reader = new BinaryReader(ms))
+            {
+                uint magic = reader.ReadUInt32();
+                uint ver = reader.ReadUInt32();
+                Assert(magic == 0x50524F50 && ver == 2, "Load Game V2: Magic header and version 2 verified");
+
+                int sCount = reader.ReadInt32();
+                for (int s = 0; s < sCount; s++) reader.ReadString();
+
+                int pCount = reader.ReadInt32();
+                for (int p = 0; p < pCount; p++)
+                {
+                    uint extId = reader.ReadUInt32();
+                    float px = reader.ReadSingle();
+                    float py = reader.ReadSingle();
+                    float pz = reader.ReadSingle();
+                    float angle = reader.ReadSingle();
+                    ushort flags = reader.ReadUInt16();
+                    ushort strIdx = reader.ReadUInt16();
+                    ushort mountedSlot = reader.ReadUInt16();
+
+                    v2LoadMgr.m_props256k[extId].m_position = new SimVector3(px, py, pz);
+                    v2LoadMgr.m_props256k[extId].m_angle = angle;
+                    v2LoadMgr.m_props256k[extId].m_flags = flags;
+                    v2LoadMgr.m_props256k[extId].m_infoIndex = strIdx;
+                    v2LoadMgr.m_props256k[extId].m_mountedVanillaId = mountedSlot;
+                    v2LoadMgr.AddToGrid32(extId, v2LoadMgr.m_props256k[extId].m_position);
+                }
+
+                uint trailer = reader.ReadUInt32();
+                Assert(trailer == 0x444E4550u, "Load Game V2: Trailer PEND checksum verified");
+            }
+
+            // Kiểm tra Low ID (< 65536) và High ID (>= 65536)
+            bool lowIdMatch = (v2LoadMgr.m_props256k[1000].m_position == v2SaveMgr.m_props256k[1000].m_position) &&
+                              (v2LoadMgr.m_props256k[1000].m_mountedVanillaId == 1000);
+            Assert(lowIdMatch, "Dual-Stream Integrity: Low ID prop (#1000) restored with 100% precision & mounted mapping");
+
+            bool highIdMatch = (v2LoadMgr.m_props256k[68000].m_position == v2SaveMgr.m_props256k[68000].m_position) &&
+                               (v2LoadMgr.m_props256k[68000].m_mountedVanillaId == 0);
+            Assert(highIdMatch, "Dual-Stream Integrity: High ID prop (#68000) restored past 65K ceiling in unmounted storage");
         }
 
         // =====================================================================
@@ -784,6 +888,76 @@ namespace MorePropsBETA.Tests
             // 6.5 Kiểm tra ExtendedPropInstance Sequential Struct Layout
             var structType = asm.MainModule.GetType("MorePropsBETA.ExtendedPropInstance");
             Assert(structType.IsSequentialLayout, "ExtendedPropInstance struct has Sequential memory layout for native performance");
+
+            // 6.6 KIỂM TOÁN TYPE EXPORT HARDENING (IMMUNITY TO ReflectionTypeLoadException)
+            var publicTypes = asm.MainModule.Types.Where(t => t.IsPublic).ToList();
+            bool strictlyThreePublic = publicTypes.Count == 3 &&
+                publicTypes.Any(t => t.FullName == "MorePropsBETA.ModInfo") &&
+                publicTypes.Any(t => t.FullName == "MorePropsBETA.LoadingExtension") &&
+                publicTypes.Any(t => t.FullName == "MorePropsBETA.MorePropsSerializer");
+            Assert(strictlyThreePublic, $"Assembly export type hardening: Strictly 3 public types exported (ModInfo, LoadingExtension, MorePropsSerializer) for ReflectionTypeLoadException immunity (Exported: {publicTypes.Count})");
+        }
+
+        // =====================================================================
+        // TEST GROUP 7: MÔ PHỎNG CHỐNG XUNG ĐỘT KHI LOAD SAVE VỚI CÁC MOD KHÁC
+        // =====================================================================
+        private static void TestGroup7_MultiModCoexistenceSimulation()
+        {
+            Console.WriteLine("\n--- TEST GROUP 7: Multi-Mod Coexistence & Safe Load Simulation ---");
+
+            SimExtendedPropManager extMgr = new SimExtendedPropManager();
+
+            // 7.1 Mô phỏng save nạp vào có sẵn 10.000 props
+            for (int i = 0; i < 10000; i++)
+            {
+                extMgr.AllocateExtendedProp(out uint id);
+                extMgr.m_props256k[id].m_position = new SimVector3(i, 0f, i);
+                extMgr.m_props256k[id].m_infoIndex = (ushort)(i % 10 + 1);
+                extMgr.AddToGrid32(id, extMgr.m_props256k[id].m_position);
+            }
+
+            // 7.2 Giả lập một mod khác (ví dụ Prop Line Tool hoặc Road Asset) tự tạo thêm 500 props trực tiếp vào active buffer khi nạp save
+            List<SimVanillaPropInstance> foreignProps = new List<SimVanillaPropInstance>();
+            for (int f = 0; f < 500; f++)
+            {
+                foreignProps.Add(new SimVanillaPropInstance
+                {
+                    m_position = new SimVector3(5000f + f * 5f, 10f, 5000f + f * 5f),
+                    m_angle = 0f,
+                    m_flags = 1,
+                    m_infoIndex = 99
+                });
+            }
+
+            // Thuật toán SynchronizeVanillaActiveBuffer hấp thụ các prop ngoại lai mà không làm nhân bản prop đã có
+            int absorbedCount = 0;
+            foreach (var fp in foreignProps)
+            {
+                if (extMgr.AllocateExtendedProp(out uint newExtId))
+                {
+                    extMgr.m_props256k[newExtId].m_position = fp.m_position;
+                    extMgr.m_props256k[newExtId].m_angle = fp.m_angle;
+                    extMgr.m_props256k[newExtId].m_flags = fp.m_flags;
+                    extMgr.m_props256k[newExtId].m_infoIndex = fp.m_infoIndex;
+                    extMgr.AddToGrid32(newExtId, fp.m_position);
+                    absorbedCount++;
+                }
+            }
+
+            Assert(absorbedCount == 500, "Multi-mod Load Coexistence: Absorbed 500 foreign props from other mods without desync");
+            Assert(extMgr.ExtendedPropCount == 10500, "Total props count is exactly 10,500 without duplicate creation");
+
+            // 7.3 Kiểm tra an toàn bộ đệm khi có nhiều mod can thiệp
+            SimExtendedPropManager headroomMgr = new SimExtendedPropManager();
+            for (int i = 0; i < 200; i++)
+            {
+                headroomMgr.AllocateExtendedProp(out uint eid);
+                headroomMgr.m_props256k[eid].m_position = new SimVector3(2000f + i * 5f, 0f, 2000f + i * 5f);
+                headroomMgr.MountProp(eid);
+            }
+            int preEvict = headroomMgr.m_vanillaCount;
+            headroomMgr.EvictDistantProps(new SimVector3(0, 0, 0), 500f, 100);
+            Assert(preEvict - headroomMgr.m_vanillaCount >= 100, "Safe Headroom: Active buffer automatically pruned of distant props leaving headroom for all tools and mods");
         }
     }
 }

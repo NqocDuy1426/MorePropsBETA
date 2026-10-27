@@ -7,7 +7,7 @@ using UnityEngine;
 namespace MorePropsBETA
 {
     [HarmonyPatch(typeof(PropManager), "EndRenderingImpl")]
-    public static class ExtendedPropRenderer
+    internal static class ExtendedPropRenderer
     {
         [HarmonyPostfix]
         public static void EndRenderingImplPostfix(RenderManager.CameraInfo cameraInfo)

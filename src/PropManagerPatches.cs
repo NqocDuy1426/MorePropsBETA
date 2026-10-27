@@ -8,7 +8,7 @@ using UnityEngine;
 namespace MorePropsBETA
 {
     [HarmonyPatch]
-    public static class PropManagerPatches
+    internal static class PropManagerPatches
     {
         // ==========================================
         // 1. PATCH CheckLimits: BỎ QUA GIỚI HẠN CỨNG 65531 CỦA GAME GỐC
@@ -326,7 +326,7 @@ namespace MorePropsBETA
     // ==========================================
     // DYNAMIC MOVE IT HOOK (REFLECTIVE ADAPTER)
     // ==========================================
-    public static class DynamicMoveItHook
+    internal static class DynamicMoveItHook
     {
         public static void TryHookMoveIt()
         {

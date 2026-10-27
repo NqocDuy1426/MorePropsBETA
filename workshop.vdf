@@ -57,10 +57,10 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.4-BETA: DYNAMIC LIFECYCLE MONITORING & DUAL-COLUMN HARMONIZATION:
-1. 100% Dynamic data pipeline: #maxsize, #In Use, and #itemCount are queried live from ExtendedPropManager without hardcoded constants (leaving 65,531 as the sole default vanilla limit benchmark).
-2. Native lifecycle integration: Completely eliminated external polling loops; CSL Show More Limits and monitor mods self-update naturally via their own coroutines, timers, and manual refresh events.
-3. Dual-column display parity: Formatted 'User Props' with dual-column inUse and itemCount ('4,059 | [4,060]') perfectly matching 'Net Segments', 'Buildings', and 'Vehicles Active'.
-4. Seamless compatibility hooks for Watch It! and Show It! limit displays."
+	"changenote"		"v1.0.5-BETA: DUAL-STREAM V2 SERIALIZATION, LOW/HIGH ID HARMONY & MULTI-MOD IMMUNITY:
+1. Dual-Stream V2 Serialization: Added explicit mounted-slot tracking (m_mountedVanillaId) and PEND trailer validation, guaranteeing 100% data preservation and eliminating duplicate props across save/load cycles for both Low IDs (< 65,536) and High IDs (>= 65,536).
+2. Assembly Export Type Hardening: Internalized all non-extension classes and structs, strictly exporting only the 3 official ICities classes to eliminate ReflectionTypeLoadException during third-party mod inspection (Assembly.GetExportedTypes).
+3. Multi-Mod Load Coexistence: Added resilient active buffer synchronization (SynchronizeVanillaActiveBuffer) that gracefully absorbs props placed by detailing/asset mods during load without desync, while maintaining safe 48K buffer headroom.
+4. Resilient Prefab Resolution: Added intelligent prefab name matching with fallback support for '_Data' and Workshop ID prefix variations, protecting against missing asset crashes when mods/assets are reordered."
 }
 
