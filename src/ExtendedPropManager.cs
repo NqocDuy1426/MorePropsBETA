@@ -307,7 +307,20 @@ namespace MorePropsBETA
                     m_isInternalOperation = true;
                     try
                     {
-                        pm.ReleaseProp(vanillaId);
+                        // 1. Cập nhật render group trước khi gỡ
+                        try { pm.UpdatePropRenderer(vanillaId, true); } catch { }
+
+                        // 2. Gỡ khỏi m_propGrid của game gốc một cách an toàn dưới lock
+                        try { RemoveFromVanillaGrid(pm, vanillaId, ref vProp); } catch { }
+
+                        // 3. Giải phóng slot trong m_props của game gốc mà KHÔNG gọi UpdateProp (tránh gây lỗi TerrainModify IndexOutOfRangeException)
+                        vProp.m_flags = 0;
+                        vProp.m_nextGridProp = 0;
+                        pm.m_props.ReleaseItem(vanillaId);
+                        pm.m_propCount = (int)(pm.m_props.ItemCount() - 1u);
+
+                        // 4. Cập nhật lại render group sau khi gỡ
+                        try { pm.UpdatePropRenderer(vanillaId, true); } catch { }
                     }
                     finally
                     {
@@ -318,6 +331,48 @@ namespace MorePropsBETA
             catch (Exception ex)
             {
                 Log.Exception($"UnmountProp(vanillaId={vanillaId})", ex);
+            }
+        }
+
+        private void RemoveFromVanillaGrid(PropManager pm, ushort vanillaId, ref PropInstance vProp)
+        {
+            if (pm == null || pm.m_propGrid == null) return;
+
+            int gx = Mathf.Clamp(((int)vProp.m_posX + 32768) * 270 / 65536, 0, 269);
+            int gz = Mathf.Clamp(((int)vProp.m_posZ + 32768) * 270 / 65536, 0, 269);
+            int cell = gz * 270 + gx;
+
+            if (System.Threading.Monitor.TryEnter(pm.m_propGrid, SimulationManager.SYNCHRONIZE_TIMEOUT))
+            {
+                try
+                {
+                    ushort prev = 0;
+                    ushort cur = pm.m_propGrid[cell];
+                    int count = 0;
+                    while (cur != 0)
+                    {
+                        if (cur == vanillaId)
+                        {
+                            if (prev == 0)
+                            {
+                                pm.m_propGrid[cell] = vProp.m_nextGridProp;
+                            }
+                            else
+                            {
+                                pm.m_props.m_buffer[prev].m_nextGridProp = vProp.m_nextGridProp;
+                            }
+                            break;
+                        }
+                        prev = cur;
+                        cur = pm.m_props.m_buffer[cur].m_nextGridProp;
+                        if (++count > 65536) break;
+                    }
+                    vProp.m_nextGridProp = 0;
+                }
+                finally
+                {
+                    System.Threading.Monitor.Exit(pm.m_propGrid);
+                }
             }
         }
 

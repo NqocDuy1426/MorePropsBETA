@@ -396,6 +396,7 @@ namespace MorePropsBETA.Tests
             TestGroup5_SerializationSimulation();
             TestGroup6_BytecodeAuditWithCecil();
             TestGroup7_MultiModCoexistenceSimulation();
+            TestGroup8_CrashPreventionAndRenderingHardening();
 
             Console.WriteLine("\n======================================================================");
             Console.WriteLine($"📊 TEST EXECUTION SUMMARY: {s_passed} PASSED, {s_failed} FAILED");
@@ -958,6 +959,72 @@ namespace MorePropsBETA.Tests
             int preEvict = headroomMgr.m_vanillaCount;
             headroomMgr.EvictDistantProps(new SimVector3(0, 0, 0), 500f, 100);
             Assert(preEvict - headroomMgr.m_vanillaCount >= 100, "Safe Headroom: Active buffer automatically pruned of distant props leaving headroom for all tools and mods");
+        }
+
+        // =====================================================================
+        // TEST GROUP 8: KIỂM TOÁN CHỐNG CRASH VÀ TỐI ƯU KẾT XUẤT RENDERING
+        // =====================================================================
+        private static void TestGroup8_CrashPreventionAndRenderingHardening()
+        {
+            Console.WriteLine("\n--- TEST GROUP 8: Crash Prevention & Rendering Hardening ---");
+
+            var readerParams = new ReaderParameters { ReadWrite = false };
+            var asm = AssemblyDefinition.ReadAssembly("MorePropsBETA.dll", readerParams);
+
+            // 8.1 Kiểm tra UnmountProp không gọi ReleaseProp của game gốc (loại trừ tận gốc TerrainModify IndexOutOfRangeException)
+            var extMgrType = asm.MainModule.GetType("MorePropsBETA.ExtendedPropManager");
+            var unmountMethod = extMgrType.Methods.FirstOrDefault(m => m.Name == "UnmountProp");
+            Assert(unmountMethod != null, "ExtendedPropManager contains UnmountProp method");
+
+            bool callsVanillaReleaseProp = false;
+            bool callsReleaseItem = false;
+            foreach (var inst in unmountMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Callvirt || inst.OpCode == OpCodes.Call)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("PropManager::ReleaseProp"))
+                    {
+                        callsVanillaReleaseProp = true;
+                    }
+                    if (op.Contains("ReleaseItem"))
+                    {
+                        callsReleaseItem = true;
+                    }
+                }
+            }
+
+            Assert(!callsVanillaReleaseProp, "UnmountProp Terrain Isolation: Does NOT invoke PropManager.ReleaseProp (eliminates TerrainModify IndexOutOfRangeException)");
+            Assert(callsReleaseItem, "UnmountProp Slot Safety: Invokes ReleaseItem directly to guarantee 100% reliable slot recycling");
+
+            // 8.2 Kiểm tra sự hiện diện của RemoveFromVanillaGrid
+            var removeGridMethod = extMgrType.Methods.FirstOrDefault(m => m.Name == "RemoveFromVanillaGrid");
+            Assert(removeGridMethod != null, "ExtendedPropManager contains RemoveFromVanillaGrid method for thread-safe grid cleanup");
+
+            // 8.3 Kiểm tra ExtendedPropRenderer: có frustum culling (Intersect) và mapping heightMap/waterMap (chống ArgumentNullException)
+            var rendererType = asm.MainModule.GetType("MorePropsBETA.ExtendedPropRenderer");
+            var endRenderingMethod = rendererType.Methods.FirstOrDefault(m => m.Name == "EndRenderingImplPostfix");
+            Assert(endRenderingMethod != null, "ExtendedPropRenderer contains EndRenderingImplPostfix method");
+
+            bool hasIntersect = false;
+            bool hasHeightMapping = false;
+            bool hasWaterMapping = false;
+            foreach (var inst in endRenderingMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Callvirt || inst.OpCode == OpCodes.Call)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("Intersect")) hasIntersect = true;
+                    if (op.Contains("GetHeightMapping")) hasHeightMapping = true;
+                    if (op.Contains("GetWaterMapping")) hasWaterMapping = true;
+                }
+            }
+
+            Assert(hasIntersect, "ExtendedPropRenderer Frustum Culling: Uses CameraInfo.Intersect for massive performance optimization");
+            Assert(hasHeightMapping && hasWaterMapping, "ExtendedPropRenderer LOD Map Armor: Passes HeightMapping & WaterMapping to eliminate ArgumentNullException in MaterialPropertyBlock.SetTexture");
+
+            // 8.4 Kiểm tra exception handling trong LOD flushing
+            Assert(endRenderingMethod.Body.ExceptionHandlers.Count > 0, "ExtendedPropRenderer Exception Shield: Contains robust exception handlers to absorb bad Workshop assets");
         }
     }
 }

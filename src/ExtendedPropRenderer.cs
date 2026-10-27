@@ -26,6 +26,9 @@ namespace MorePropsBETA
 
             Randomizer randomizer = new Randomizer(314159);
 
+            TerrainManager tm = Singleton<TerrainManager>.instance;
+            EventManager em = Singleton<EventManager>.instance;
+
             try
             {
                 for (int z = minZ; z <= maxZ; z++)
@@ -47,21 +50,44 @@ namespace MorePropsBETA
                                 PropInfo info = PrefabCollection<PropInfo>.GetPrefab(prop.m_infoIndex);
                                 if (info != null && cameraInfo.CheckRenderDistance(prop.m_position, info.m_maxRenderDistance))
                                 {
-                                    float scale = (info.m_minScale + info.m_maxScale) * 0.5f;
-                                    Color color = info.GetColor(ref randomizer);
+                                    // Kiểm tra View Frustum Culling
+                                    if (cameraInfo.Intersect(prop.m_position, info.m_generatedInfo.m_size.y * info.m_maxScale))
+                                    {
+                                        float scale = info.m_minScale + (float)randomizer.Int32(10000u) * (info.m_maxScale - info.m_minScale) * 0.0001f;
+                                        Color color = info.GetColor(ref randomizer);
 
-                                    // Gọi chính xác phương thức RenderInstance gốc của game engine
-                                    PropInstance.RenderInstance(
-                                        cameraInfo,
-                                        info,
-                                        default(InstanceID),
-                                        prop.m_position,
-                                        scale,
-                                        prop.m_angle,
-                                        color,
-                                        RenderManager.DefaultColorLocation,
-                                        true
-                                    );
+                                        // Gọi chính xác overload RenderInstance theo cấu hình của PropInfo
+                                        // (đảm bảo truyền đầy đủ heightMap/waterMap để tránh crash ArgumentNullException khi xuất LOD)
+                                        if (info.m_requireWaterMap && tm != null)
+                                        {
+                                            tm.GetHeightMapping(prop.m_position, out Texture heightMap, out Vector4 heightMapping, out Vector4 surfaceMapping);
+                                            tm.GetWaterMapping(prop.m_position, out Texture waterHeightMap, out Vector4 waterHeightMapping, out Vector4 waterSurfaceMapping);
+                                            PropInstance.RenderInstance(
+                                                cameraInfo, info, default(InstanceID), prop.m_position, scale, prop.m_angle, color,
+                                                RenderManager.DefaultColorLocation, true,
+                                                heightMap, heightMapping, surfaceMapping,
+                                                waterHeightMap, waterHeightMapping, waterSurfaceMapping
+                                            );
+                                        }
+                                        else if (info.m_requireHeightMap && tm != null)
+                                        {
+                                            tm.GetHeightMapping(prop.m_position, out Texture heightMap, out Vector4 heightMapping, out Vector4 surfaceMapping);
+                                            PropInstance.RenderInstance(
+                                                cameraInfo, info, default(InstanceID), prop.m_position, scale, prop.m_angle, color,
+                                                RenderManager.DefaultColorLocation, true,
+                                                heightMap, heightMapping, surfaceMapping
+                                            );
+                                        }
+                                        else
+                                        {
+                                            Vector4 billboardRect = (info.m_eventBillboard && em != null) ? em.blankBillboardRect : Vector4.zero;
+                                            PropInstance.RenderInstance(
+                                                cameraInfo, info, default(InstanceID), prop.m_position, scale, prop.m_angle, color,
+                                                RenderManager.DefaultColorLocation, true,
+                                                billboardRect
+                                            );
+                                        }
+                                    }
                                 }
                             }
 
@@ -77,7 +103,15 @@ namespace MorePropsBETA
                     PropInfo info = PrefabCollection<PropInfo>.GetPrefab((uint)i);
                     if (info != null && info.m_lodCount > 0)
                     {
-                        PropInstance.RenderLod(cameraInfo, info);
+                        try
+                        {
+                            PropInstance.RenderLod(cameraInfo, info);
+                        }
+                        catch
+                        {
+                            // Nếu một asset bị lỗi LOD texture/material, reset lodCount để tránh tái diễn lỗi ở frame sau
+                            info.m_lodCount = 0;
+                        }
                     }
                 }
             }

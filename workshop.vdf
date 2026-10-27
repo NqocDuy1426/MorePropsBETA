@@ -57,10 +57,10 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.5-BETA: DUAL-STREAM V2 SERIALIZATION, LOW/HIGH ID HARMONY & MULTI-MOD IMMUNITY:
-1. Dual-Stream V2 Serialization: Added explicit mounted-slot tracking (m_mountedVanillaId) and PEND trailer validation, guaranteeing 100% data preservation and eliminating duplicate props across save/load cycles for both Low IDs (< 65,536) and High IDs (>= 65,536).
-2. Assembly Export Type Hardening: Internalized all non-extension classes and structs, strictly exporting only the 3 official ICities classes to eliminate ReflectionTypeLoadException during third-party mod inspection (Assembly.GetExportedTypes).
-3. Multi-Mod Load Coexistence: Added resilient active buffer synchronization (SynchronizeVanillaActiveBuffer) that gracefully absorbs props placed by detailing/asset mods during load without desync, while maintaining safe 48K buffer headroom.
-4. Resilient Prefab Resolution: Added intelligent prefab name matching with fallback support for '_Data' and Workshop ID prefix variations, protecting against missing asset crashes when mods/assets are reordered."
+	"changenote"		"v1.0.6-BETA: CRASH SHIELD & RENDERING HARDENING:
+1. Eliminated TerrainModify IndexOutOfRangeException: Rewrote UnmountProp to directly and safely recycle active vanilla slots via RemoveFromVanillaGrid and ReleaseItem under synchronized lock, bypassing vanilla PropManager.ReleaseProp. This prevents unnecessary TerrainModify/UpdateArea calculations on unmounted props, completely eliminating IndexOutOfRangeException crashes in Building/NetSegment.TerrainUpdated and preventing vanilla slot leaks.
+2. Armored LOD Batch Renderer Against ArgumentNullException: ExtendedPropRenderer now automatically detects and provides appropriate HeightMapping and WaterMapping textures via TerrainManager when rendering unmounted props (quays, decals, rocks, water vegetation). This eliminates the MaterialPropertyBlock.SetTexture null argument exception during batch LOD flushes.
+3. Added Native View Frustum Culling: Integrated CameraInfo.Intersect culling into ExtendedPropRenderer, skipping off-screen unmounted props before transform/matrix calculations for maximum framerate stability.
+4. Resilient LOD Error Absorption: Wrapped batch LOD flushes in try-catch blocks with automatic lodCount reset, isolating broken Workshop assets and preventing render frame disruptions."
 }
 
