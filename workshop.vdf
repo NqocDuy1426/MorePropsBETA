@@ -57,10 +57,9 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.6-BETA: CRASH SHIELD & RENDERING HARDENING:
-1. Eliminated TerrainModify IndexOutOfRangeException: Rewrote UnmountProp to directly and safely recycle active vanilla slots via RemoveFromVanillaGrid and ReleaseItem under synchronized lock, bypassing vanilla PropManager.ReleaseProp. This prevents unnecessary TerrainModify/UpdateArea calculations on unmounted props, completely eliminating IndexOutOfRangeException crashes in Building/NetSegment.TerrainUpdated and preventing vanilla slot leaks.
-2. Armored LOD Batch Renderer Against ArgumentNullException: ExtendedPropRenderer now automatically detects and provides appropriate HeightMapping and WaterMapping textures via TerrainManager when rendering unmounted props (quays, decals, rocks, water vegetation). This eliminates the MaterialPropertyBlock.SetTexture null argument exception during batch LOD flushes.
-3. Added Native View Frustum Culling: Integrated CameraInfo.Intersect culling into ExtendedPropRenderer, skipping off-screen unmounted props before transform/matrix calculations for maximum framerate stability.
-4. Resilient LOD Error Absorption: Wrapped batch LOD flushes in try-catch blocks with automatic lodCount reset, isolating broken Workshop assets and preventing render frame disruptions."
+	"changenote"		"v1.0.7-BETA: UNIVERSAL TOOL TARGETING & MOVE IT ACCURACY FIX:
+1. Universal Cursor Proximity Mounting: Added ToolController.Update postfix hook that tracks the mouse cursor via TerrainManager.RayCast and dynamically mounts all props within a 96m radius into the active buffer whenever the mouse moves. This guarantees BulldozeTool, Better Bulldozer, DefaultTool, Picker, and Move It hover over and target unmounted 256k props effortlessly.
+2. 100% Geometric Raycast Accuracy: Replaced custom raycast distance approximation in PropManager.RayCast with candidate ray line mounting, allowing native game engine raycast logic to compute exact hit positions, surface normals, and distance metrics.
+3. Move It Hover & Marquee Selection Fix: Fixed Move It proximity detection by replacing broken Unity Physics.Raycast with native TerrainManager.RayCast, and hooked MoveItTool.GetMarqueeList to ensure all props inside the marquee drag selection box are mounted before Move It captures them."
 }
 

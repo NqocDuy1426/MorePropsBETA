@@ -226,11 +226,11 @@ namespace MorePropsBETA
         }
 
         // ==========================================
-        // 6. PATCH RayCast: TỰ ĐỘNG BẮT VÀ MOUNT KHI CHUỘT RÀ TRÚNG PROP 256K
+        // 6. PATCH RayCast: TỰ ĐỘNG MOUNT CÁC PROP DỌC TIA TRƯỚC KHI ENGINE GỐC KIỂM TRA
         // ==========================================
         [HarmonyPatch(typeof(PropManager), nameof(PropManager.RayCast))]
         [HarmonyPrefix]
-        public static bool RayCastPrefix(ref bool __result, Segment3 ray, ItemClass.Service service, ItemClass.SubService subService, ItemClass.Layer itemLayers, PropInstance.Flags ignoreFlags, out Vector3 hit, out ushort propIndex)
+        public static bool RayCastPrefix(Segment3 ray, ItemClass.Service service, ItemClass.SubService subService, ItemClass.Layer itemLayers, PropInstance.Flags ignoreFlags, out Vector3 hit, out ushort propIndex)
         {
             hit = Vector3.zero;
             propIndex = 0;
@@ -238,78 +238,9 @@ namespace MorePropsBETA
             try
             {
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
-                if (extMgr == null)
+                if (extMgr != null && extMgr.ExtendedPropCount > 0)
                 {
-                    return true;
-                }
-
-                Vector3 a = ray.a;
-                Vector3 b = ray.b;
-
-                int minX = ExtendedPropManager.WorldToGridX(Mathf.Min(a.x, b.x) - 16f);
-                int maxX = ExtendedPropManager.WorldToGridX(Mathf.Max(a.x, b.x) + 16f);
-                int minZ = ExtendedPropManager.WorldToGridZ(Mathf.Min(a.z, b.z) - 16f);
-                int maxZ = ExtendedPropManager.WorldToGridZ(Mathf.Max(a.z, b.z) + 16f);
-
-                float minDistanceSqr = float.MaxValue;
-                uint closestExtendedId = 0;
-                Vector3 bestHit = Vector3.zero;
-
-                for (int z = minZ; z <= maxZ; z++)
-                {
-                    for (int x = minX; x <= maxX; x++)
-                    {
-                        uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
-                        uint extId = extMgr.m_propGrid32[cell];
-
-                        while (extId != 0)
-                        {
-                            ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
-                            uint next = extProp.m_nextGridProp;
-
-                            if (extProp.IsCreated && (extProp.m_flags & (ushort)ignoreFlags) == 0)
-                            {
-                                PropInfo info = PrefabCollection<PropInfo>.GetPrefab(extProp.m_infoIndex);
-                                if (info != null)
-                                {
-                                    if ((service == ItemClass.Service.None || info.m_class.m_service == service) &&
-                                        (subService == ItemClass.SubService.None || info.m_class.m_subService == subService) &&
-                                        (itemLayers == ItemClass.Layer.None || (info.m_class.m_layer & itemLayers) != ItemClass.Layer.None))
-                                    {
-                                        float scale = (info.m_minScale + info.m_maxScale) * 0.5f;
-                                        float height = info.m_mesh != null ? info.m_mesh.bounds.size.y * scale : 2f;
-                                        float radius = Mathf.Max(info.m_mesh != null ? info.m_mesh.bounds.extents.x * scale : 1f, 0.5f);
-
-                                        Bounds propBounds = new Bounds(extProp.m_position + new Vector3(0f, height * 0.5f, 0f), new Vector3(radius * 2f, height, radius * 2f));
-
-                                        if (propBounds.IntersectRay(new Ray(ray.a, ray.b - ray.a), out float dist))
-                                        {
-                                            Vector3 candidateHit = ray.a + (ray.b - ray.a).normalized * dist;
-                                            float distSqr = (candidateHit - ray.a).sqrMagnitude;
-
-                                            if (distSqr < minDistanceSqr)
-                                            {
-                                                minDistanceSqr = distSqr;
-                                                closestExtendedId = extId;
-                                                bestHit = candidateHit;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            extId = next;
-                        }
-                    }
-                }
-
-                if (closestExtendedId != 0)
-                {
-                    // Mount prop trúng đích ngay lập tức vào Active Buffer để công cụ tương tác tức thì
-                    propIndex = extMgr.MountProp(closestExtendedId);
-                    hit = bestHit;
-                    __result = (propIndex != 0);
-                    return false;
+                    MountCandidatePropsAlongRay(extMgr, ray);
                 }
             }
             catch (Exception ex)
@@ -317,9 +248,104 @@ namespace MorePropsBETA
                 Log.Exception("RayCastPrefix", ex);
             }
 
-            hit = Vector3.zero;
-            propIndex = 0;
-            return true; // Cho phép vanilla RayCast thực thi bình thường khi không trúng extended prop nào
+            // Luôn cho phép vanilla PropManager.RayCast thực thi:
+            // Vì các prop unmounted dọc tia đã được MountProp đưa vào m_propGrid của game gốc,
+            // engine sẽ tự động kiểm tra va chạm với 100% độ chính xác hình học và trả về tọa độ hit chuẩn xác!
+            return true;
+        }
+
+        private static void MountCandidatePropsAlongRay(ExtendedPropManager extMgr, Segment3 ray)
+        {
+            Bounds mapBounds = new Bounds(new Vector3(0f, 512f, 0f), new Vector3(17280f, 1152f, 17280f));
+            Segment3 clippedRay = ray;
+            if (!clippedRay.Clip(mapBounds)) return;
+
+            Vector3 a = clippedRay.a;
+            Vector3 b = clippedRay.b;
+
+            int minX = ExtendedPropManager.WorldToGridX(Mathf.Min(a.x, b.x) - 16f);
+            int maxX = ExtendedPropManager.WorldToGridX(Mathf.Max(a.x, b.x) + 16f);
+            int minZ = ExtendedPropManager.WorldToGridZ(Mathf.Min(a.z, b.z) - 16f);
+            int maxZ = ExtendedPropManager.WorldToGridZ(Mathf.Max(a.z, b.z) + 16f);
+
+            // Nếu góc nhìn camera nằm ngang chân trời quét qua quá nhiều ô, lấy điểm giao cắt địa hình làm trọng tâm
+            if (maxX - minX > 25 || maxZ - minZ > 25)
+            {
+                TerrainManager tm = Singleton<TerrainManager>.instance;
+                if (tm != null && tm.RayCast(clippedRay, out Vector3 groundHit))
+                {
+                    extMgr.MountPropsInArea(groundHit, 96f);
+                    return;
+                }
+            }
+
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
+                    uint extId = extMgr.m_propGrid32[cell];
+
+                    while (extId != 0)
+                    {
+                        ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
+                        uint next = extProp.m_nextGridProp;
+
+                        if (extProp.IsCreated && !extProp.IsMounted)
+                        {
+                            // Kiểm tra khoảng cách hình học từ prop đến tia ray
+                            if (clippedRay.DistanceSqr(extProp.m_position) < 900f) // Trong phạm vi 30m quanh tia
+                            {
+                                extMgr.MountProp(extId);
+                            }
+                        }
+
+                        extId = next;
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 7. PATCH ToolController.Update: TỰ ĐỘNG MOUNT TOÀN DIỆN CHO MỌI CÔNG CỤ (BULLDOZER, MOVE IT, PICKER...)
+        // ==========================================
+        private static Vector3 s_lastMountedCursorPos = new Vector3(-9999f, -9999f, -9999f);
+
+        [HarmonyPatch(typeof(ToolController), "Update")]
+        [HarmonyPostfix]
+        public static void ToolControllerUpdatePostfix(ToolController __instance)
+        {
+            try
+            {
+                if (Singleton<LoadingManager>.instance == null || !Singleton<LoadingManager>.instance.m_loadingComplete) return;
+
+                ExtendedPropManager extMgr = ExtendedPropManager.Instance;
+                if (extMgr == null || extMgr.ExtendedPropCount == 0) return;
+
+                ToolBase currentTool = __instance != null ? __instance.CurrentTool : null;
+                if (currentTool == null || !currentTool.enabled) return;
+
+                Camera cam = Camera.main;
+                if (cam == null) return;
+
+                Ray mouseRay = cam.ScreenPointToRay(Input.mousePosition);
+                Segment3 segment = new Segment3(mouseRay.origin, mouseRay.origin + mouseRay.direction * 5000f);
+
+                TerrainManager tm = Singleton<TerrainManager>.instance;
+                if (tm != null && tm.RayCast(segment, out Vector3 terrainHit))
+                {
+                    // Chỉ quét mount lại khi chuột di chuyển > 4 mét hoặc tới vị trí mới
+                    if ((terrainHit - s_lastMountedCursorPos).sqrMagnitude > 16f)
+                    {
+                        s_lastMountedCursorPos = terrainHit;
+                        extMgr.MountPropsInArea(terrainHit, 96f);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("ToolControllerUpdatePostfix", ex);
+            }
         }
     }
 
@@ -351,13 +377,24 @@ namespace MorePropsBETA
                 Type moveItToolType = moveItAssembly.GetType("MoveIt.MoveItTool");
                 if (moveItToolType == null) return;
 
+                HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
+
+                // 1. Hook MoveItTool.OnToolUpdate để mount prop quanh con trỏ chuột
                 MethodInfo updateMethod = moveItToolType.GetMethod("OnToolUpdate", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 if (updateMethod != null)
                 {
-                    HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
                     MethodInfo postfixMethod = typeof(DynamicMoveItHook).GetMethod(nameof(OnMoveItToolUpdatePostfix), BindingFlags.Static | BindingFlags.NonPublic);
                     harmony.Patch(updateMethod, postfix: new HarmonyMethod(postfixMethod));
                     Log.Info("Successfully integrated dynamic hook with MoveItTool.OnToolUpdate!");
+                }
+
+                // 2. Hook MoveItTool.GetMarqueeList để mount toàn bộ prop trong khung kéo chữ nhật (Marquee Selection)
+                MethodInfo marqueeMethod = moveItToolType.GetMethod("GetMarqueeList", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (marqueeMethod != null)
+                {
+                    MethodInfo marqueePre = typeof(DynamicMoveItHook).GetMethod(nameof(GetMarqueeListPrefix), BindingFlags.Static | BindingFlags.NonPublic);
+                    harmony.Patch(marqueeMethod, prefix: new HarmonyMethod(marqueePre));
+                    Log.Info("Successfully integrated dynamic hook with MoveItTool.GetMarqueeList!");
                 }
             }
             catch (Exception ex)
@@ -370,20 +407,50 @@ namespace MorePropsBETA
         {
             try
             {
-                // Khi Move It đang kích hoạt, tự động Mount các prop nằm quanh con trỏ chuột trong bán kính 64m
                 ToolBase tool = __instance as ToolBase;
                 if (tool != null && tool.enabled && Camera.main != null && ExtendedPropManager.Instance != null)
                 {
                     Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                    if (Physics.Raycast(ray, out RaycastHit hit, 2000f))
+                    Segment3 segment = new Segment3(ray.origin, ray.origin + ray.direction * 5000f);
+                    TerrainManager tm = Singleton<TerrainManager>.instance;
+                    if (tm != null && tm.RayCast(segment, out Vector3 terrainHit))
                     {
-                        ExtendedPropManager.Instance.MountPropsInArea(hit.point, 64f);
+                        ExtendedPropManager.Instance.MountPropsInArea(terrainHit, 96f);
                     }
                 }
             }
             catch (Exception ex)
             {
                 Log.Warning("OnMoveItToolUpdatePostfix exception: " + ex.Message);
+            }
+        }
+
+        private static void GetMarqueeListPrefix(object __instance, Ray mouseRay)
+        {
+            try
+            {
+                ExtendedPropManager extMgr = ExtendedPropManager.Instance;
+                if (extMgr == null || extMgr.ExtendedPropCount == 0) return;
+
+                Type toolType = __instance.GetType();
+                FieldInfo fClick = toolType.GetField("m_clickPositionAbs", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (fClick != null && Singleton<TerrainManager>.instance != null)
+                {
+                    Vector3 startPos = (Vector3)fClick.GetValue(__instance);
+                    Segment3 segment = new Segment3(mouseRay.origin, mouseRay.origin + mouseRay.direction * 5000f);
+                    if (Singleton<TerrainManager>.instance.RayCast(segment, out Vector3 currentPos))
+                    {
+                        float minX = Mathf.Min(startPos.x, currentPos.x) - 16f;
+                        float maxX = Mathf.Max(startPos.x, currentPos.x) + 16f;
+                        float minZ = Mathf.Min(startPos.z, currentPos.z) - 16f;
+                        float maxZ = Mathf.Max(startPos.z, currentPos.z) + 16f;
+                        extMgr.MountPropsInRect(minX, minZ, maxX, maxZ);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("GetMarqueeListPrefix exception: " + ex.Message);
             }
         }
     }

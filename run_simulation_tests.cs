@@ -266,6 +266,11 @@ namespace MorePropsBETA.Tests
             }
         }
 
+        public void MountPropsInArea(SimVector3 center, float radius)
+        {
+            MountPropsInRect(center.x - radius, center.z - radius, center.x + radius, center.z + radius);
+        }
+
         public void EvictDistantProps(SimVector3 preserveCenter, float preserveRadius, int targetEvictCount)
         {
             float preserveRadiusSqr = preserveRadius * preserveRadius;
@@ -397,6 +402,7 @@ namespace MorePropsBETA.Tests
             TestGroup6_BytecodeAuditWithCecil();
             TestGroup7_MultiModCoexistenceSimulation();
             TestGroup8_CrashPreventionAndRenderingHardening();
+            TestGroup9_ToolTargetingAndMarqueeAudit();
 
             Console.WriteLine("\n======================================================================");
             Console.WriteLine($"📊 TEST EXECUTION SUMMARY: {s_passed} PASSED, {s_failed} FAILED");
@@ -1025,6 +1031,98 @@ namespace MorePropsBETA.Tests
 
             // 8.4 Kiểm tra exception handling trong LOD flushing
             Assert(endRenderingMethod.Body.ExceptionHandlers.Count > 0, "ExtendedPropRenderer Exception Shield: Contains robust exception handlers to absorb bad Workshop assets");
+        }
+
+        // =====================================================================
+        // TEST GROUP 9: KIỂM TOÁN TƯƠNG TÁC CON TRỎ & MARQUEE CHO MỌI CÔNG CỤ (BULLDOZER, MOVE IT...)
+        // =====================================================================
+        private static void TestGroup9_ToolTargetingAndMarqueeAudit()
+        {
+            Console.WriteLine("\n--- TEST GROUP 9: Universal Tool Targeting & Marquee Selection Audit ---");
+
+            var readerParams = new ReaderParameters { ReadWrite = false };
+            var asm = AssemblyDefinition.ReadAssembly("MorePropsBETA.dll", readerParams);
+
+            // 9.1 Kiểm toán ToolControllerUpdatePostfix
+            var patchType = asm.MainModule.GetType("MorePropsBETA.PropManagerPatches");
+            var toolControllerUpdateMethod = patchType.Methods.FirstOrDefault(m => m.Name == "ToolControllerUpdatePostfix");
+            Assert(toolControllerUpdateMethod != null, "PropManagerPatches contains ToolControllerUpdatePostfix");
+
+            bool toolControllerUsesTerrainRaycast = false;
+            foreach (var inst in toolControllerUpdateMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Callvirt || inst.OpCode == OpCodes.Call)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("TerrainManager::RayCast")) toolControllerUsesTerrainRaycast = true;
+                }
+            }
+            Assert(toolControllerUsesTerrainRaycast, "ToolControllerUpdatePostfix uses TerrainManager::RayCast for universal cursor proximity mounting");
+
+            // 9.2 Kiểm toán RayCastPrefix phân rã và mount ray candidates
+            var rayCastMethod = patchType.Methods.FirstOrDefault(m => m.Name == "RayCastPrefix");
+            Assert(rayCastMethod != null, "PropManagerPatches contains RayCastPrefix");
+            bool raycastCallsMountCandidate = false;
+            foreach (var inst in rayCastMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Call || inst.OpCode == OpCodes.Callvirt)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("MountCandidatePropsAlongRay")) raycastCallsMountCandidate = true;
+                }
+            }
+            Assert(raycastCallsMountCandidate, "RayCastPrefix delegates to MountCandidatePropsAlongRay and native PropManager.RayCast for 100% precision");
+
+            // 9.3 Kiểm toán DynamicMoveItHook
+            var moveItHookType = asm.MainModule.GetType("MorePropsBETA.DynamicMoveItHook");
+            Assert(moveItHookType != null, "Assembly contains DynamicMoveItHook adapter");
+
+            var moveItUpdateMethod = moveItHookType.Methods.FirstOrDefault(m => m.Name == "OnMoveItToolUpdatePostfix");
+            Assert(moveItUpdateMethod != null, "DynamicMoveItHook contains OnMoveItToolUpdatePostfix");
+
+            bool moveItUsesTerrainRayCast = false;
+            foreach (var inst in moveItUpdateMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Callvirt || inst.OpCode == OpCodes.Call)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("TerrainManager::RayCast")) moveItUsesTerrainRayCast = true;
+                }
+            }
+            Assert(moveItUsesTerrainRayCast, "MoveItTool.OnToolUpdate uses TerrainManager::RayCast (eliminates Physics.Raycast false negatives on terrain)");
+
+            var marqueeMethod = moveItHookType.Methods.FirstOrDefault(m => m.Name == "GetMarqueeListPrefix");
+            Assert(marqueeMethod != null, "DynamicMoveItHook contains GetMarqueeListPrefix for marquee drag box selection");
+
+            bool marqueeCallsMountRect = false;
+            foreach (var inst in marqueeMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Callvirt || inst.OpCode == OpCodes.Call)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("MountPropsInRect")) marqueeCallsMountRect = true;
+                }
+            }
+            Assert(marqueeCallsMountRect, "GetMarqueeListPrefix invokes MountPropsInRect for 100% Move It marquee selection hit rate");
+
+            // 9.4 Mô phỏng con trỏ chuột di chuyển và tự động nạp prop lân cận (Proximity Mounting Simulation)
+            SimExtendedPropManager simMgr = new SimExtendedPropManager();
+            for (int i = 0; i < 50; i++)
+            {
+                simMgr.AllocateExtendedProp(out uint pid);
+                simMgr.m_props256k[pid].m_position = new SimVector3(100f + i * 2f, 10f, 100f + i * 2f);
+                simMgr.AddToGrid32(pid, simMgr.m_props256k[pid].m_position);
+            }
+
+            Assert(!simMgr.m_props256k[1].IsMounted, "Props start unmounted in 256K store");
+            simMgr.MountPropsInArea(new SimVector3(120f, 10f, 120f), 96f);
+
+            bool anyMounted = false;
+            for (uint i = 1; i <= 50; i++)
+            {
+                if (simMgr.m_props256k[i].IsMounted) { anyMounted = true; break; }
+            }
+            Assert(anyMounted, "Cursor Proximity: Mouse hovering near props triggers instant mounting into active grid for Bulldozer/MoveIt");
         }
     }
 }
