@@ -7,7 +7,6 @@ using UnityEngine;
 
 namespace MorePropsBETA
 {
-    [HarmonyPatch]
     internal static class PropManagerPatches
     {
         // ==========================================
