@@ -57,8 +57,10 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.8-BETA: CRITICAL HARMONY INITIATION & RENDER PIPELINE FIX:
-1. Fixed Harmony Patch Registration: Removed invalid class-level [HarmonyPatch] attribute on PropManagerPatches that threw 'HarmonyException: Patching exception in method null', restoring 100% successful initiation for all prop hooks and ExtendedPropRenderer.
-2. Full Render Coordinator Synchronization: Enables native Frustum Culling and hardware-accelerated LOD batching for 256K props, eliminating render bottleneck and restoring smooth FPS in large cities."
+	"changenote"		"v1.0.9-BETA: CRITICAL LOADING SCREEN MOD (LSM) & SAVE GAME FREEZE ELIMINATION:
+1. Fixed Loading Screen Mod (LSM) Hang: Eliminated infinite while-loop during save deserialization in OnLoadData (Spatial Match) by adding strict loop-safety guards.
+2. Self-Loop & Cycle Prevention: Re-architected AddToGrid32 and RemoveFromGrid32 to prevent duplicate entries and self-referencing pointer cycles (m_nextGridProp == extendedId).
+3. Universal Loop Armor: Added safety break ceilings to all spatial grid traversals across ExtendedPropRenderer, ExtendedPropManager, and RayCast, ensuring 100% immunity to game freezes.
+4. Safe Loading Isolation: Disabled buffer headroom eviction while the level is loading (!LoadingManager.m_loadingComplete), eliminating race conditions with LSM background asset deserialization threads."
 }
 

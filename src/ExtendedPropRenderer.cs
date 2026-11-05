@@ -37,9 +37,11 @@ namespace MorePropsBETA
                     {
                         uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
                         uint extId = extMgr.m_propGrid32[cell];
+                        int walk = 0;
 
                         while (extId != 0)
                         {
+                            if (++walk > 65536) break;
                             ref ExtendedPropInstance prop = ref extMgr.m_props256k[extId];
                             uint next = prop.m_nextGridProp;
 

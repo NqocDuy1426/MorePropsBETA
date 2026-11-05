@@ -406,8 +406,10 @@ namespace MorePropsBETA
                             uint cell = (uint)(cz * ExtendedPropManager.PROPGRID_RESOLUTION + cx);
 
                             uint curExtId = extMgr.m_propGrid32[cell];
+                            int walk = 0;
                             while (curExtId != 0)
                             {
+                                if (++walk > 65536) break;
                                 ref ExtendedPropInstance extProp = ref extMgr.m_props256k[curExtId];
                                 if (extProp.IsCreated && !extProp.IsMounted && extProp.m_infoIndex == vProp.m_infoIndex)
                                 {

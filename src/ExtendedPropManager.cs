@@ -428,9 +428,11 @@ namespace MorePropsBETA
                     {
                         uint cell = (uint)(z * PROPGRID_RESOLUTION + x);
                         uint extId = m_propGrid32[cell];
+                        int walk = 0;
 
                         while (extId != 0)
                         {
+                            if (++walk > 65536) break;
                             ref ExtendedPropInstance prop = ref m_props256k[extId];
                             uint next = prop.m_nextGridProp;
 
@@ -479,9 +481,11 @@ namespace MorePropsBETA
                     {
                         uint cell = (uint)(z * PROPGRID_RESOLUTION + x);
                         uint extId = m_propGrid32[cell];
+                        int walk = 0;
 
                         while (extId != 0)
                         {
+                            if (++walk > 65536) break;
                             ref ExtendedPropInstance prop = ref m_props256k[extId];
                             uint next = prop.m_nextGridProp;
 
@@ -632,9 +636,24 @@ namespace MorePropsBETA
 
         public void AddToGrid32(uint extendedId, Vector3 position)
         {
+            if (extendedId == 0 || extendedId >= MAX_EXTENDED_PROPS) return;
+
             int gx = WorldToGridX(position.x);
             int gz = WorldToGridZ(position.z);
             uint cell = (uint)(gz * PROPGRID_RESOLUTION + gx);
+
+            // Phòng thủ tự tham chiếu (Cycle Prevention)
+            if (m_propGrid32[cell] == extendedId) return;
+
+            // Kiểm tra xem extendedId đã có trong cell này chưa
+            uint cur = m_propGrid32[cell];
+            int scan = 0;
+            while (cur != 0)
+            {
+                if (cur == extendedId) return; // Đã có trong ô lưới, không thêm trùng lặp
+                if (++scan > 1024) break;
+                cur = m_props256k[cur].m_nextGridProp;
+            }
 
             m_props256k[extendedId].m_nextGridProp = m_propGrid32[cell];
             m_propGrid32[cell] = extendedId;
@@ -648,9 +667,11 @@ namespace MorePropsBETA
 
             uint current = m_propGrid32[cell];
             uint prev = 0;
+            int walk = 0;
 
             while (current != 0)
             {
+                if (++walk > 65536) break;
                 if (current == extendedId)
                 {
                     if (prev == 0)

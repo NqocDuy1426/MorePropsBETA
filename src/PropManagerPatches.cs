@@ -58,7 +58,9 @@ namespace MorePropsBETA
                 }
 
                 PropManager pm = Singleton<PropManager>.instance;
-                if (pm != null && pm.m_propCount >= ExtendedPropManager.SAFE_VANILLA_THRESHOLD)
+                LoadingManager lm = Singleton<LoadingManager>.instance;
+                bool isLevelLoading = lm != null && !lm.m_loadingComplete;
+                if (!isLevelLoading && pm != null && pm.m_propCount >= ExtendedPropManager.SAFE_VANILLA_THRESHOLD)
                 {
                     extMgr.EnsureBufferHeadroom(position, ExtendedPropManager.SAFE_VANILLA_THRESHOLD);
                 }
@@ -284,9 +286,11 @@ namespace MorePropsBETA
                 {
                     uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
                     uint extId = extMgr.m_propGrid32[cell];
+                    int walk = 0;
 
                     while (extId != 0)
                     {
+                        if (++walk > 65536) break;
                         ref ExtendedPropInstance extProp = ref extMgr.m_props256k[extId];
                         uint next = extProp.m_nextGridProp;
 
