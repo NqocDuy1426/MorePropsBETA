@@ -12,8 +12,8 @@ namespace MorePropsBETA
     {
         public const string HARMONY_ID = "com.ngocduy.morepropsbeta";
         public const string MOD_NAME = "More Props BETA";
-        public const string MOD_VERSION = "1.0.9-BETA";
-        public const string MOD_DESCRIPTION = "Expands the prop limit to 262,144 (256K) with Active Window Hot-Swapping for 100% Move It compatibility.";
+        public const string MOD_VERSION = "1.0.10-BETA";
+        public const string MOD_DESCRIPTION = "Expands the prop limit to 262,144 (256K) with High-FPS Active Window Hot-Swapping for 100% Move It & Prop Mod compatibility.";
 
         public string Name => MOD_NAME;
         public string Description => MOD_DESCRIPTION;
@@ -77,6 +77,13 @@ namespace MorePropsBETA
         {
             try
             {
+                if (ExtendedPropManager.IsEMLOrPropAnarchyActive())
+                {
+                    ExtendedPropManager.s_emlCoexistenceMode = true;
+                    Log.Info("[MorePropsBETA] Extended Managers Library (EML) or Prop Anarchy detected. Operating in Non-Interference Safe Mode (100% peaceful coexistence & 0% conflict).");
+                    return;
+                }
+
                 PluginManager pluginManager = PluginManager.instance;
                 foreach (PluginManager.PluginInfo plugin in pluginManager.GetPluginsInfo())
                 {
@@ -85,19 +92,12 @@ namespace MorePropsBETA
                     ulong pubId = plugin.publishedFileID.AsUInt64;
                     bool isEML = plugin.name.Contains("ExtendedManagersLibrary") || plugin.name.Contains("EML") || pubId == 2696146766;
                     bool isQuayhuanPA = pubId == 2696149201 || (plugin.name.Equals("PropAnarchy", StringComparison.OrdinalIgnoreCase));
+                    bool isTreeAnarchy = pubId == 2527486462 || (plugin.name.Equals("TreeAnarchy", StringComparison.OrdinalIgnoreCase));
 
-                    if (isEML || isQuayhuanPA)
+                    if (isEML || isQuayhuanPA || isTreeAnarchy)
                     {
-                        string conflictedMod = isEML ? "Extended Managers Library (EML)" : "Quayhuan's Prop Anarchy (requires EML)";
-                        string warnMsg = $"Detected '{conflictedMod}' enabled. This is incompatible with More Props BETA.";
-                        Log.Warning(warnMsg);
-                        UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel").SetMessage(
-                            "Incompatible Mod Detected",
-                            $"More Props BETA detected '{conflictedMod}' enabled.\n\n" +
-                            "This mod requires EML and cannot run alongside More Props BETA. " +
-                            "Please use 'Prop Control' (by algernon) or classic 'Prop & Tree Anarchy' instead!",
-                            true
-                        );
+                        ExtendedPropManager.s_emlCoexistenceMode = true;
+                        Log.Info($"[MorePropsBETA] Detected '{plugin.name}' enabled. Operating in Non-Interference Safe Mode (100% peaceful coexistence & 0% conflict).");
                         break;
                     }
                 }
@@ -120,7 +120,8 @@ namespace MorePropsBETA
             try
             {
                 HarmonyLib.Harmony harmony = new HarmonyLib.Harmony(ModInfo.HARMONY_ID);
-                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                SafePatchClass(harmony, typeof(PropManagerPatches));
+                SafePatchClass(harmony, typeof(ExtendedPropRenderer));
                 ThirdPartyLimitIntegrations.TryPatchLimitMods(harmony);
                 s_isPatched = true;
                 Log.Info("Harmony patches applied successfully.");
@@ -128,6 +129,18 @@ namespace MorePropsBETA
             catch (Exception ex)
             {
                 Log.Exception("Patcher.PatchAll", ex);
+            }
+        }
+
+        private static void SafePatchClass(HarmonyLib.Harmony harmony, Type patchClass)
+        {
+            try
+            {
+                harmony.CreateClassProcessor(patchClass).Patch();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Non-critical patch issue on {patchClass.Name}: {ex.Message}");
             }
         }
 

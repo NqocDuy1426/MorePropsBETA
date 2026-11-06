@@ -106,12 +106,12 @@ namespace MorePropsBETA
                     }
                 }
 
-                // Bảo đảm headroom trong Active Buffer không bị tràn (> 55,000)
-                if (Time.realtimeSinceStartup - m_lastHeadroomCheck > 3f)
+                // Bảo đảm headroom trong Active Buffer không bị tràn (> 63,500)
+                if (Time.realtimeSinceStartup - m_lastHeadroomCheck > 5f)
                 {
                     m_lastHeadroomCheck = Time.realtimeSinceStartup;
                     PropManager pm = Singleton<PropManager>.instance;
-                    if (pm != null && pm.m_propCount > 55000)
+                    if (pm != null && pm.m_propCount > 63500)
                     {
                         Vector3 focus = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
                         ExtendedPropManager.Instance?.EnsureBufferHeadroom(focus, ExtendedPropManager.SAFE_VANILLA_THRESHOLD);

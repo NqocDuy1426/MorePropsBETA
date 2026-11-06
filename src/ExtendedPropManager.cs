@@ -26,7 +26,29 @@ namespace MorePropsBETA
         public const int PROPGRID_RESOLUTION = 270;
         public const float PROPGRID_CELL_SIZE = 64f;   // 17280 / 270 = 64m
         public const float HALF_MAP_SIZE = 8640f;
-        public const int SAFE_VANILLA_THRESHOLD = 48000; // Ngưỡng an toàn để bắt đầu Unmount prop ở xa
+        public const int SAFE_VANILLA_THRESHOLD = 62000; // Ngưỡng an toàn để giữ 100% native performance cho mọi thành phố < 62K props
+
+        public static bool s_emlCoexistenceMode = false; // Chế độ hòa bình khi phát hiện EML hoặc Prop Anarchy
+
+        public static bool IsEMLOrPropAnarchyActive()
+        {
+            try
+            {
+                var pm = Singleton<PropManager>.instance;
+                if (pm != null && pm.GetType().Name == "EPropManager") return true;
+
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    string name = asm.GetName().Name;
+                    if (name == "EManagersLib" || name == "ExtendedManagersLibrary" || name == "PropAnarchy" || name == "TreeAnarchy")
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
 
         private static ExtendedPropManager s_instance;
         public static ExtendedPropManager Instance => s_instance;
@@ -202,6 +224,7 @@ namespace MorePropsBETA
         // ==========================================
         public ushort MountProp(uint extendedId)
         {
+            if (s_emlCoexistenceMode) return 0;
             if (extendedId == 0 || extendedId >= MAX_EXTENDED_PROPS) return 0;
 
             ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
@@ -223,7 +246,7 @@ namespace MorePropsBETA
             if (pm.m_propCount >= SAFE_VANILLA_THRESHOLD)
             {
                 Vector3 camPos = Camera.main != null ? Camera.main.transform.position : extProp.m_position;
-                EvictDistantProps(camPos, 600f, 1000);
+                EvictDistantProps(camPos, 600f, 200);
             }
 
             m_isInternalOperation = true;
@@ -307,20 +330,15 @@ namespace MorePropsBETA
                     m_isInternalOperation = true;
                     try
                     {
-                        // 1. Cập nhật render group trước khi gỡ
-                        try { pm.UpdatePropRenderer(vanillaId, true); } catch { }
-
-                        // 2. Gỡ khỏi m_propGrid của game gốc một cách an toàn dưới lock
+                        // 1. Gỡ khỏi m_propGrid của game gốc một cách an toàn dưới lock
                         try { RemoveFromVanillaGrid(pm, vanillaId, ref vProp); } catch { }
 
-                        // 3. Giải phóng slot trong m_props của game gốc mà KHÔNG gọi UpdateProp (tránh gây lỗi TerrainModify IndexOutOfRangeException)
+                        // 2. Giải phóng slot trong m_props của game gốc mà KHÔNG gọi UpdateProp (tránh gây lỗi TerrainModify IndexOutOfRangeException)
                         vProp.m_flags = 0;
                         vProp.m_nextGridProp = 0;
                         pm.m_props.ReleaseItem(vanillaId);
                         pm.m_propCount = (int)(pm.m_props.ItemCount() - 1u);
-
-                        // 4. Cập nhật lại render group sau khi gỡ
-                        try { pm.UpdatePropRenderer(vanillaId, true); } catch { }
+                        pm.m_propsUpdated = true;
                     }
                     finally
                     {
@@ -564,10 +582,12 @@ namespace MorePropsBETA
             }
         }
 
-        public void EnsureBufferHeadroom(Vector3 focusPoint, int targetCount = 48000)
+        public void EnsureBufferHeadroom(Vector3 focusPoint, int targetCount = SAFE_VANILLA_THRESHOLD)
         {
             try
             {
+                if (s_emlCoexistenceMode) return;
+
                 PropManager pm = Singleton<PropManager>.instance;
                 if (pm == null || pm.m_propCount <= targetCount) return;
 

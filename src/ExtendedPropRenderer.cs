@@ -9,20 +9,32 @@ namespace MorePropsBETA
     [HarmonyPatch(typeof(PropManager), "EndRenderingImpl")]
     internal static class ExtendedPropRenderer
     {
+        private static readonly FastList<PropInfo> s_renderedPrefabs = new FastList<PropInfo>();
+
         [HarmonyPostfix]
         public static void EndRenderingImplPostfix(RenderManager.CameraInfo cameraInfo)
         {
             if (Singleton<LoadingManager>.instance == null || !Singleton<LoadingManager>.instance.m_loadingComplete) return;
+            if (ExtendedPropManager.s_emlCoexistenceMode) return;
 
             ExtendedPropManager extMgr = ExtendedPropManager.Instance;
             if (extMgr == null || extMgr.ExtendedPropCount == 0) return;
 
             Bounds cameraBounds = cameraInfo.m_bounds;
+            Vector3 camPos = cameraInfo.m_position;
+            const float MAX_PROP_RENDER_DIST = 1200f; // Ngưỡng tối đa prop có thể hiển thị trong Cities: Skylines
 
-            int minX = ExtendedPropManager.WorldToGridX(cameraBounds.min.x - 32f);
-            int maxX = ExtendedPropManager.WorldToGridX(cameraBounds.max.x + 32f);
-            int minZ = ExtendedPropManager.WorldToGridZ(cameraBounds.min.z - 32f);
-            int maxZ = ExtendedPropManager.WorldToGridZ(cameraBounds.max.z + 32f);
+            float boxMinX = Mathf.Max(cameraBounds.min.x - 32f, camPos.x - MAX_PROP_RENDER_DIST);
+            float boxMaxX = Mathf.Min(cameraBounds.max.x + 32f, camPos.x + MAX_PROP_RENDER_DIST);
+            float boxMinZ = Mathf.Max(cameraBounds.min.z - 32f, camPos.z - MAX_PROP_RENDER_DIST);
+            float boxMaxZ = Mathf.Min(cameraBounds.max.z + 32f, camPos.z + MAX_PROP_RENDER_DIST);
+
+            if (boxMinX > boxMaxX || boxMinZ > boxMaxZ) return;
+
+            int minX = ExtendedPropManager.WorldToGridX(boxMinX);
+            int maxX = ExtendedPropManager.WorldToGridX(boxMaxX);
+            int minZ = ExtendedPropManager.WorldToGridZ(boxMinZ);
+            int maxZ = ExtendedPropManager.WorldToGridZ(boxMaxZ);
 
             Randomizer randomizer = new Randomizer(314159);
 
@@ -31,12 +43,15 @@ namespace MorePropsBETA
 
             try
             {
+                s_renderedPrefabs.Clear();
+
                 for (int z = minZ; z <= maxZ; z++)
                 {
                     for (int x = minX; x <= maxX; x++)
                     {
                         uint cell = (uint)(z * ExtendedPropManager.PROPGRID_RESOLUTION + x);
                         uint extId = extMgr.m_propGrid32[cell];
+                        if (extId == 0) continue;
                         int walk = 0;
 
                         while (extId != 0)
@@ -55,6 +70,11 @@ namespace MorePropsBETA
                                     // Kiểm tra View Frustum Culling
                                     if (cameraInfo.Intersect(prop.m_position, info.m_generatedInfo.m_size.y * info.m_maxScale))
                                     {
+                                        if (info.m_lodCount == 0)
+                                        {
+                                            s_renderedPrefabs.Add(info);
+                                        }
+
                                         float scale = info.m_minScale + (float)randomizer.Int32(10000u) * (info.m_maxScale - info.m_minScale) * 0.0001f;
                                         Color color = info.GetColor(ref randomizer);
 
@@ -98,11 +118,10 @@ namespace MorePropsBETA
                     }
                 }
 
-                // Xả các Batch LOD còn đọng trong PropInfo để hoàn tất khung hình
-                int propCount = PrefabCollection<PropInfo>.PrefabCount();
-                for (int i = 0; i < propCount; i++)
+                // Xả các Batch LOD chỉ trên các prefab thực tế có prop unmounted được vẽ trong khung hình
+                for (int i = 0; i < s_renderedPrefabs.m_size; i++)
                 {
-                    PropInfo info = PrefabCollection<PropInfo>.GetPrefab((uint)i);
+                    PropInfo info = s_renderedPrefabs.m_buffer[i];
                     if (info != null && info.m_lodCount > 0)
                     {
                         try
@@ -111,11 +130,11 @@ namespace MorePropsBETA
                         }
                         catch
                         {
-                            // Nếu một asset bị lỗi LOD texture/material, reset lodCount để tránh tái diễn lỗi ở frame sau
                             info.m_lodCount = 0;
                         }
                     }
                 }
+                s_renderedPrefabs.Clear();
             }
             catch (Exception ex)
             {

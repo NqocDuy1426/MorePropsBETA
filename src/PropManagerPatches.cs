@@ -18,6 +18,8 @@ namespace MorePropsBETA
         {
             try
             {
+                if (ExtendedPropManager.s_emlCoexistenceMode) return true;
+
                 ExtendedPropManager.EnsureInitialized();
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
                 if (extMgr != null)
@@ -38,11 +40,12 @@ namespace MorePropsBETA
         // ==========================================
         [HarmonyPatch(typeof(PropManager), nameof(PropManager.CreateProp))]
         [HarmonyPrefix]
-        public static bool CreatePropPrefix(ref bool __result, out ushort prop, ref Randomizer randomizer, PropInfo info, Vector3 position, float angle, bool single)
+        public static bool CreatePropPrefix(ref bool __result, ref ushort prop, ref Randomizer randomizer, PropInfo info, Vector3 position, float angle, bool single)
         {
-            prop = 0;
             try
             {
+                if (ExtendedPropManager.s_emlCoexistenceMode) return true;
+
                 ExtendedPropManager.EnsureInitialized();
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
                 if (extMgr == null || extMgr.m_isInternalOperation)
@@ -52,6 +55,7 @@ namespace MorePropsBETA
 
                 if (extMgr.ExtendedPropCount >= ExtendedPropManager.MAX_EXTENDED_PROPS - 1)
                 {
+                    prop = 0;
                     __result = false;
                     Log.Warning("Prop limit ceiling reached: 262,144 props. Creation blocked.");
                     return false; // Đã chạm mốc 262.144 prop tối đa
@@ -320,6 +324,7 @@ namespace MorePropsBETA
         {
             try
             {
+                if (ExtendedPropManager.s_emlCoexistenceMode) return;
                 if (Singleton<LoadingManager>.instance == null || !Singleton<LoadingManager>.instance.m_loadingComplete) return;
 
                 ExtendedPropManager extMgr = ExtendedPropManager.Instance;
@@ -327,6 +332,11 @@ namespace MorePropsBETA
 
                 ToolBase currentTool = __instance != null ? __instance.CurrentTool : null;
                 if (currentTool == null || !currentTool.enabled) return;
+
+                // TỐI ƯU HÓA HIỆU NĂNG: Chỉ mount khi công cụ chỉnh sửa thực tế đang hoạt động
+                // Bỏ qua DefaultTool (lúc người chơi chỉ ngắm thành phố / điều khiển camera thông thường)
+                string toolName = currentTool.GetType().Name;
+                if (toolName == "DefaultTool") return;
 
                 Camera cam = Camera.main;
                 if (cam == null) return;
@@ -337,8 +347,8 @@ namespace MorePropsBETA
                 TerrainManager tm = Singleton<TerrainManager>.instance;
                 if (tm != null && tm.RayCast(segment, out Vector3 terrainHit))
                 {
-                    // Chỉ quét mount lại khi chuột di chuyển > 4 mét hoặc tới vị trí mới
-                    if ((terrainHit - s_lastMountedCursorPos).sqrMagnitude > 16f)
+                    // Chỉ quét mount lại khi chuột di chuyển > 8 mét hoặc tới vị trí mới
+                    if ((terrainHit - s_lastMountedCursorPos).sqrMagnitude > 64f)
                     {
                         s_lastMountedCursorPos = terrainHit;
                         extMgr.MountPropsInArea(terrainHit, 96f);

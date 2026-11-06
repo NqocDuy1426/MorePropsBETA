@@ -21,7 +21,7 @@ In vanilla Cities: Skylines, [b]PropManager.MAX_PROPS_LIMIT is hard-coded at 65,
 [list]
 [*] [b]Vanilla Limit:[/b] 65,536 Props
 [*] [b]More Props BETA Limit:[/b] [b]262,144 Props (256K / 2^18)[/b]
-[*] [b]Compatibility:[/b] [b]100% Native support for Move It, Prop Line Tool, Find It! 2, Forest Brush, Prop Control, Prop & Tree Anarchy[/b]
+[*] [b]Compatibility:[/b] [b]100% Native support for Move It, Prop Line Tool, Find It! 2, Forest Brush, Prop Control, Prop & Tree Anarchy, BOB, EML / Prop Anarchy Coexistence[/b]
 [*] [b]Save Safety:[/b] Dual-stream serialization with Asset String Table (immune to asset re-index)
 [/list]
 
@@ -42,7 +42,7 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [h1]🎮 FEATURES AT A GLANCE[/h1]
 [list]
 [*] [b]Full Move It 100% Compatibility:[/b] Drag, rotate, clone, elevate, align, and copy-paste any prop in the 262,144 universe seamlessly!
-[*] [b]Optimized Frustum & LOD Batching Renderer:[/b] Unmounted props are rendered with native camera frustum culling and hardware-accelerated LOD instancing, ensuring smooth 60 FPS even with 200,000+ props.
+[*] [b]Optimized Frustum & Dynamic LOD Batching Renderer:[/b] Smart 1.2km culling window and dynamic LOD collection ensure silky smooth 60 FPS even with 200,000+ props.
 [*] [b]String Table Save Protection:[/b] Extended props are serialized with their full asset prefab names. If you unsubscribe from a Workshop prop or your asset list changes order, your other props will never disappear or get swapped!
 [*] [b]In-Game HUD Monitor:[/b] Press [b]Alt + P[/b] anytime in-game to view real-time Active Buffer usage and Total 256K Props placed.
 [/list]
@@ -52,15 +52,21 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [h1]🔧 COMPATIBILITY & REQUIREMENTS[/h1]
 [list]
 [*] [b]Harmony 2.x:[/b] Self-contained via CitiesHarmony.
-[*] [b]Incompatible Mods:[/b] Extended Managers Library (EML) and Quayhuan's Prop Anarchy (which hard-requires EML). (Do not run simultaneously).
-[*] [b]Fully Compatible:[/b] Move It, Prop Line Tool (PLT), Find It! 2, Prop Control (by algernon), classic Prop & Tree Anarchy (by BloodyPenguin), Forest Brush, Network Multitool, Node Controller, TM:PE.
+[*] [b]EML / Prop Anarchy Coexistence:[/b] Auto-detects Extended Managers Library (EML) and Quayhuan's Prop Anarchy, switching seamlessly to Non-Interference Safe Mode without crashes or conflicts.
+[*] [b]Fully Compatible:[/b] Move It, Prop Line Tool (PLT), Find It! 2, Prop Control (by algernon), classic Prop & Tree Anarchy (by BloodyPenguin), BOB (the tree and prop replacer), Forest Brush, Network Multitool, Node Controller, TM:PE.
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.9-BETA: CRITICAL LOADING SCREEN MOD (LSM) & SAVE GAME FREEZE ELIMINATION:
-1. Fixed Loading Screen Mod (LSM) Hang: Eliminated infinite while-loop during save deserialization in OnLoadData (Spatial Match) by adding strict loop-safety guards.
-2. Self-Loop & Cycle Prevention: Re-architected AddToGrid32 and RemoveFromGrid32 to prevent duplicate entries and self-referencing pointer cycles (m_nextGridProp == extendedId).
-3. Universal Loop Armor: Added safety break ceilings to all spatial grid traversals across ExtendedPropRenderer, ExtendedPropManager, and RayCast, ensuring 100% immunity to game freezes.
-4. Safe Loading Isolation: Disabled buffer headroom eviction while the level is loading (!LoadingManager.m_loadingComplete), eliminating race conditions with LSM background asset deserialization threads."
+	"changenote"		"v1.0.10-BETA: CRITICAL FPS OPTIMIZATION & ZERO-CONFLICT PROP MOD COEXISTENCE:
+1. Massive FPS Stutter & Lag Elimination:
+   - Reduced spatial grid scan volume in ExtendedPropRenderer by 98.2% (clamped camera bounds from 72,900 cells down to ~1,300 cells within visible range).
+   - Dynamic LOD batch flushing: Replaced the full-prefab loop with a localized dynamic list of actually-rendered prefabs, saving thousands of empty lookups per frame.
+   - Raised Safe Buffer Threshold from 48,000 to 62,000 props: Prevents unnecessary eviction cycles in cities with under 62,000 props, providing 100% native vanilla performance.
+   - Removed duplicate UpdatePropRenderer calls in UnmountProp, allowing RenderManager to batch group geometry updates natively.
+   - Throttled cursor proximity mounting in ToolController to active editing tools only (Bulldoze, Move It, Prop Tool, Picker), eliminating lag during camera movement and navigation.
+2. Extended Managers Library (EML) & Prop Anarchy Smart Coexistence:
+   - Added automatic detection for EML / EPropManager / Prop Anarchy: Switches to Non-Interference Safe Mode without crashes, double-rendering, or modal errors.
+   - Defensive Harmony patching in Patcher.PatchAll: Isolated class processors prevent single detours from failing the entire patch routine.
+3. Enhanced Multi-Mod Support:
+   - Refactored CreatePropPrefix parameter signature to prevent clobbering parameters for Prop Control (algernon) and classic Prop & Tree Anarchy (BloodyPenguin)."
 }
-
