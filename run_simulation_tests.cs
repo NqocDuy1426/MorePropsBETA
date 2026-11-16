@@ -903,6 +903,16 @@ namespace MorePropsBETA.Tests
                 publicTypes.Any(t => t.FullName == "MorePropsBETA.LoadingExtension") &&
                 publicTypes.Any(t => t.FullName == "MorePropsBETA.MorePropsSerializer");
             Assert(strictlyThreePublic, $"Assembly export type hardening: Strictly 3 public types exported (ModInfo, LoadingExtension, MorePropsSerializer) for ReflectionTypeLoadException immunity (Exported: {publicTypes.Count})");
+
+            // 6.7 KIỂM TRA ASSEMBLY VERSION
+            Assert(asm.Name.Version != null && asm.Name.Version.Major == 1 && asm.Name.Version.Minor == 0, $"Assembly has valid AssemblyVersion (Version: {asm.Name.Version})");
+
+            // 6.8 KIỂM TRA INTEROP API CHO MORE NETWORK CAPACITY (MNC)
+            bool hasInstanceProp = extMgrType.Properties.Any(p => p.Name == "instance") && extMgrType.Properties.Any(p => p.Name == "Instance");
+            bool hasHotSwapField = extMgrType.Fields.Any(f => f.Name == "m_hotSwapActive");
+            bool hasPostLoadEvent = extMgrType.Events.Any(e => e.Name == "OnPostLoad");
+            bool hasAddToGridMethod = extMgrType.Methods.Any(m => m.Name == "AddToGrid32");
+            Assert(hasInstanceProp && hasHotSwapField && hasPostLoadEvent && hasAddToGridMethod, "ExtendedPropManager MNC Interop API (instance/Instance, m_hotSwapActive, OnPostLoad, AddToGrid32) fully verified");
         }
 
         // =====================================================================

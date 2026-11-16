@@ -52,6 +52,29 @@ namespace MorePropsBETA
 
         private static ExtendedPropManager s_instance;
         public static ExtendedPropManager Instance => s_instance;
+        public static ExtendedPropManager instance => s_instance;
+
+        // Cờ báo hiệu trạng thái hoạt động của bộ đệm Hot-Swap cho các mod tích hợp (như More Network Capacity)
+        public static bool m_hotSwapActive = true;
+
+        // Sự kiện báo hiệu tải xong dữ liệu prop cho các mod tích hợp
+        public static event Action OnPostLoad;
+        public static event Action OnLoadComplete;
+        public static event Action PostLoadEvent;
+
+        public static void TriggerPostLoad()
+        {
+            try
+            {
+                OnPostLoad?.Invoke();
+                OnLoadComplete?.Invoke();
+                PostLoadEvent?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Log.Exception("ExtendedPropManager.TriggerPostLoad", ex);
+            }
+        }
 
         // Bộ nhớ dữ liệu 256K toàn cục
         public readonly ExtendedPropInstance[] m_props256k;

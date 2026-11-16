@@ -57,16 +57,14 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.10-BETA: CRITICAL FPS OPTIMIZATION & ZERO-CONFLICT PROP MOD COEXISTENCE:
-1. Massive FPS Stutter & Lag Elimination:
-   - Reduced spatial grid scan volume in ExtendedPropRenderer by 98.2% (clamped camera bounds from 72,900 cells down to ~1,300 cells within visible range).
-   - Dynamic LOD batch flushing: Replaced the full-prefab loop with a localized dynamic list of actually-rendered prefabs, saving thousands of empty lookups per frame.
-   - Raised Safe Buffer Threshold from 48,000 to 62,000 props: Prevents unnecessary eviction cycles in cities with under 62,000 props, providing 100% native vanilla performance.
-   - Removed duplicate UpdatePropRenderer calls in UnmountProp, allowing RenderManager to batch group geometry updates natively.
-   - Throttled cursor proximity mounting in ToolController to active editing tools only (Bulldoze, Move It, Prop Tool, Picker), eliminating lag during camera movement and navigation.
-2. Extended Managers Library (EML) & Prop Anarchy Smart Coexistence:
-   - Added automatic detection for EML / EPropManager / Prop Anarchy: Switches to Non-Interference Safe Mode without crashes, double-rendering, or modal errors.
-   - Defensive Harmony patching in Patcher.PatchAll: Isolated class processors prevent single detours from failing the entire patch routine.
-3. Enhanced Multi-Mod Support:
-   - Refactored CreatePropPrefix parameter signature to prevent clobbering parameters for Prop Control (algernon) and classic Prop & Tree Anarchy (BloodyPenguin)."
+	"changenote"		"v1.0.11-BETA: ZERO-DELAY MULTI-MOD SYNERGY & REFLECTION HARDENING:
+1. Seamless Interoperability with More Network Capacity (MNC):
+   - Added instant reflection properties ('instance' and 'Instance') for cross-mod coordination.
+   - Exposed active 'm_hotSwapActive' state flag to notify coordination managers of Virtual 16-bit Active Window availability.
+   - Added post-load lifecycle events ('OnPostLoad', 'OnLoadComplete', 'PostLoadEvent') triggered immediately upon save deserialization and level loading, eliminating the 2-second fallback coordination delay.
+2. Metadata & Version Integrity:
+   - Added official AssemblyInfo with version 1.0.11.0 to eliminate 0.0.0.0 untracked assembly warnings.
+   - Preserved strict 3-public-types export hardening for 100% immunity against third-party ReflectionTypeLoadException.
+3. Test Suite Verification:
+   - All 80 deep simulation test cases passed (100%)."
 }

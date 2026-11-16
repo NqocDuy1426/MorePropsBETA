@@ -121,6 +121,7 @@ namespace MorePropsBETA
             {
                 Log.Info("No extended prop container found in save. Importing existing vanilla props into 256K storage...");
                 ImportVanillaPropsIntoExtended(extMgr);
+                ExtendedPropManager.TriggerPostLoad();
                 return;
             }
 
@@ -207,6 +208,10 @@ namespace MorePropsBETA
             {
                 Log.Exception("MorePropsSerializer.OnLoadData", ex);
                 ImportVanillaPropsIntoExtended(extMgr);
+            }
+            finally
+            {
+                ExtendedPropManager.TriggerPostLoad();
             }
         }
 
