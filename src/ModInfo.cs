@@ -12,7 +12,7 @@ namespace MorePropsBETA
     {
         public const string HARMONY_ID = "com.ngocduy.morepropsbeta";
         public const string MOD_NAME = "More Props BETA";
-        public const string MOD_VERSION = "1.0.11-BETA";
+        public const string MOD_VERSION = "1.0.12-BETA";
         public const string MOD_DESCRIPTION = "Expands the prop limit to 262,144 (256K) with High-FPS Active Window Hot-Swapping for 100% Move It & Prop Mod compatibility.";
 
         public string Name => MOD_NAME;

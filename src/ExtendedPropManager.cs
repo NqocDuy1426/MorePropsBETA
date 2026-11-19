@@ -299,16 +299,10 @@ namespace MorePropsBETA
                 extProp.m_mountedVanillaId = vanillaId;
                 extProp.m_lastAccessTime = Time.realtimeSinceStartup;
 
-                // Tính toán chính xác độ cao mặt đất (Terrain Height) để tránh prop bay lơ lửng tại Y = 0
-                pm.m_props.m_buffer[vanillaId].CalculateProp(vanillaId);
-
-                // Thay vì gọi pm.UpdatePropRenderer gây đệ quy UpdateProps,
-                // đánh dấu vào m_updatedProps bitmask để engine tự động chạy cập nhật renderer ở frame tiếp theo
-                if (pm.m_updatedProps != null && (vanillaId >> 6) < pm.m_updatedProps.Length)
-                {
-                    pm.m_updatedProps[vanillaId >> 6] |= 1UL << (vanillaId & 63);
-                    pm.m_propsUpdated = true;
-                }
+                // Cập nhật renderer của slot trong RenderGroup một cách an toàn mà KHÔNG gọi CalculateProp
+                // (bảo toàn 100% độ cao nâng tùy chỉnh của Move It/Prop Snapping, không kéo tụt surface xuống mặt đất)
+                // và KHÔNG đánh dấu m_updatedProps (tránh SimulationStepImpl gọi TerrainModify gây rung giật mặt đất)
+                pm.UpdatePropRenderer(vanillaId, true);
             }
             catch (Exception ex)
             {

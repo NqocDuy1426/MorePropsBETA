@@ -1041,6 +1041,36 @@ namespace MorePropsBETA.Tests
 
             // 8.4 Kiểm tra exception handling trong LOD flushing
             Assert(endRenderingMethod.Body.ExceptionHandlers.Count > 0, "ExtendedPropRenderer Exception Shield: Contains robust exception handlers to absorb bad Workshop assets");
+
+            // 8.5 Kiểm tra MountProp bảo toàn độ cao nâng (không gọi CalculateProp làm đè tụt Surface xuống đất)
+            var mountMethod = extMgrType.Methods.FirstOrDefault(m => m.Name == "MountProp");
+            Assert(mountMethod != null, "ExtendedPropManager contains MountProp method");
+
+            bool mountCallsCalculateProp = false;
+            bool mountCallsUpdatePropRenderer = false;
+            foreach (var inst in mountMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Callvirt || inst.OpCode == OpCodes.Call)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("CalculateProp")) mountCallsCalculateProp = true;
+                    if (op.Contains("UpdatePropRenderer")) mountCallsUpdatePropRenderer = true;
+                }
+            }
+            Assert(!mountCallsCalculateProp, "MountProp Elevation Armor: Does NOT invoke CalculateProp (preserves Move It elevated props/surfaces, eliminates Z-fighting & ground snapping)");
+            Assert(mountCallsUpdatePropRenderer, "MountProp Render Link: Safely updates slot render group via UpdatePropRenderer without triggering TerrainModify");
+
+            // 8.6 Kiểm tra ExtendedPropRenderer dùng deterministic randomizer (chống giật scale/color bề mặt)
+            bool usesDeterministicRandomizer = false;
+            foreach (var inst in endRenderingMethod.Body.Instructions)
+            {
+                if (inst.OpCode == OpCodes.Call || inst.OpCode == OpCodes.Newobj)
+                {
+                    string op = inst.Operand?.ToString() ?? string.Empty;
+                    if (op.Contains("Randomizer::.ctor(System.Int32)")) usesDeterministicRandomizer = true;
+                }
+            }
+            Assert(usesDeterministicRandomizer, "ExtendedPropRenderer Surface Stability: Uses per-prop deterministic Randomizer((int)extId) to eliminate frame-by-frame scale/color flickering");
         }
 
         // =====================================================================

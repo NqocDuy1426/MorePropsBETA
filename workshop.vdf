@@ -57,14 +57,13 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.11-BETA: ZERO-DELAY MULTI-MOD SYNERGY & REFLECTION HARDENING:
-1. Seamless Interoperability with More Network Capacity (MNC):
-   - Added instant reflection properties ('instance' and 'Instance') for cross-mod coordination.
-   - Exposed active 'm_hotSwapActive' state flag to notify coordination managers of Virtual 16-bit Active Window availability.
-   - Added post-load lifecycle events ('OnPostLoad', 'OnLoadComplete', 'PostLoadEvent') triggered immediately upon save deserialization and level loading, eliminating the 2-second fallback coordination delay.
-2. Metadata & Version Integrity:
-   - Added official AssemblyInfo with version 1.0.11.0 to eliminate 0.0.0.0 untracked assembly warnings.
-   - Preserved strict 3-public-types export hardening for 100% immunity against third-party ReflectionTypeLoadException.
-3. Test Suite Verification:
-   - All 80 deep simulation test cases passed (100%)."
+	"changenote"		"v1.0.12-BETA: SURFACE & DECAL STABILITY OVERHAUL:
+1. Eliminated Surface / Decal Jitter & Flickering:
+   - Replaced shared frame-level pseudo-randomizer with per-prop deterministic Randomizer((int)extId), permanently locking prop scales and color variations across camera pans, tilts, and zoom levels.
+   - Decal props (info.m_isDecal) now bypass unnecessary LOD batch flushing.
+2. Elevation Armor & Z-Fighting Prevention:
+   - MountProp now preserves custom Move It / Prop Snapping elevations directly without calling CalculateProp (eliminating accidental snaps down to raw terrain height).
+   - Eliminated terrain surface ruining/re-calculation triggers (m_updatedProps) during hot-swap mounts, completely resolving ground texture flickering with Surface Painter and painted surfaces.
+3. Verification Suite:
+   - All 84 comprehensive simulation test cases passed (100%)."
 }

@@ -36,8 +36,6 @@ namespace MorePropsBETA
             int minZ = ExtendedPropManager.WorldToGridZ(boxMinZ);
             int maxZ = ExtendedPropManager.WorldToGridZ(boxMaxZ);
 
-            Randomizer randomizer = new Randomizer(314159);
-
             TerrainManager tm = Singleton<TerrainManager>.instance;
             EventManager em = Singleton<EventManager>.instance;
 
@@ -70,13 +68,15 @@ namespace MorePropsBETA
                                     // Kiểm tra View Frustum Culling
                                     if (cameraInfo.Intersect(prop.m_position, info.m_generatedInfo.m_size.y * info.m_maxScale))
                                     {
-                                        if (info.m_lodCount == 0)
+                                        if (!info.m_isDecal && info.m_lodCount == 0)
                                         {
                                             s_renderedPrefabs.Add(info);
                                         }
 
-                                        float scale = info.m_minScale + (float)randomizer.Int32(10000u) * (info.m_maxScale - info.m_minScale) * 0.0001f;
-                                        Color color = info.GetColor(ref randomizer);
+                                        // Sử dụng randomizer độc lập theo ID prop để scale và màu sắc ổn định tuyệt đối (không bị nhảy theo từng frame)
+                                        Randomizer propRandomizer = new Randomizer((int)extId);
+                                        float scale = info.m_minScale + (float)propRandomizer.Int32(10000u) * (info.m_maxScale - info.m_minScale) * 0.0001f;
+                                        Color color = info.GetColor(ref propRandomizer);
 
                                         // Gọi chính xác overload RenderInstance theo cấu hình của PropInfo
                                         // (đảm bảo truyền đầy đủ heightMap/waterMap để tránh crash ArgumentNullException khi xuất LOD)

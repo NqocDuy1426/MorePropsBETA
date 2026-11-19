@@ -299,12 +299,6 @@ namespace MorePropsBETA
 
                             extMgr.AddToGrid32(extId, extProp.m_position);
 
-                            if (pm.m_updatedProps != null && (vId >> 6) < pm.m_updatedProps.Length)
-                            {
-                                pm.m_updatedProps[vId >> 6] |= 1UL << (vId & 63);
-                                pm.m_propsUpdated = true;
-                            }
-
                             imported++;
                         }
                     }
