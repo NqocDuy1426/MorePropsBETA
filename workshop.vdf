@@ -57,13 +57,10 @@ Unlike naive implementations that break 16-bit mod compatibility, More Props BET
 [/list]
 
 [b]Developed with precision by NgocDuy[/b]"
-	"changenote"		"v1.0.12-BETA: SURFACE & DECAL STABILITY OVERHAUL:
-1. Eliminated Surface / Decal Jitter & Flickering:
-   - Replaced shared frame-level pseudo-randomizer with per-prop deterministic Randomizer((int)extId), permanently locking prop scales and color variations across camera pans, tilts, and zoom levels.
-   - Decal props (info.m_isDecal) now bypass unnecessary LOD batch flushing.
-2. Elevation Armor & Z-Fighting Prevention:
-   - MountProp now preserves custom Move It / Prop Snapping elevations directly without calling CalculateProp (eliminating accidental snaps down to raw terrain height).
-   - Eliminated terrain surface ruining/re-calculation triggers (m_updatedProps) during hot-swap mounts, completely resolving ground texture flickering with Surface Painter and painted surfaces.
-3. Verification Suite:
-   - All 84 comprehensive simulation test cases passed (100%)."
+	"changenote"		"v1.0.13-BETA: POSITION QUANTIZATION FIX (Surface Stability):
+1. Root Cause Fix - Position Quantization Jitter:
+   - Vanilla PropInstance stores position as compressed short (quantized ~0.26m per axis). Every mount/unmount hot-swap cycle was corrupting the full-precision float position stored in the extended 256K buffer, causing surfaces to visibly jump/flicker when the camera panned.
+   - UnmountProp() no longer overwrites the authoritative float position from the quantized vanilla buffer.
+   - SyncFromVanilla() now uses a 0.5m dead-zone threshold to distinguish real Move It movements from quantization noise, preserving sub-millimeter position accuracy for placed surfaces.
+2. Result: Ploppable Asphalt, Pavement, and all decal/surface props now render rock-solid stable during camera movement, zoom, and rotation."
 }

@@ -331,8 +331,9 @@ namespace MorePropsBETA
                 ref PropInstance vProp = ref pm.m_props.m_buffer[vanillaId];
                 ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
 
-                // Đồng bộ ngược toàn bộ thông số từ Active Buffer về m_props256k trước khi gỡ
-                extProp.m_position = vProp.Position;
+                // Đồng bộ ngược thông số từ Active Buffer về m_props256k trước khi gỡ
+                // KHÔNG ghi đè m_position: vanilla buffer lưu dạng short (quantized ~0.26m),
+                // ghi lại sẽ làm mất precision gốc → surface nhảy mỗi chu kỳ mount/unmount
                 extProp.m_angle = vProp.Angle;
                 extProp.m_flags = vProp.m_flags;
                 extProp.m_infoIndex = vProp.m_infoIndex;
@@ -427,18 +428,32 @@ namespace MorePropsBETA
                 ref ExtendedPropInstance extProp = ref m_props256k[extendedId];
 
                 Vector3 oldPos = extProp.m_position;
-                extProp.m_position = vProp.Position;
+                Vector3 newPos = vProp.Position;
+
+                // Chỉ cập nhật position khi khoảng cách thay đổi vượt ngưỡng quantization noise (~0.3m)
+                // Vanilla PropInstance lưu position dạng short (quantized ~0.26m), nên mỗi lần đọc lại
+                // sẽ bị sai lệch nhỏ so với float gốc. Nếu ghi đè vô điều kiện → surface nhảy lung tung.
+                // Ngưỡng 0.5m: đủ lớn để lọc quantization noise, đủ nhỏ để bắt Move It di chuyển thực.
+                float dx = newPos.x - oldPos.x;
+                float dy = newPos.y - oldPos.y;
+                float dz = newPos.z - oldPos.z;
+                float distSqr = dx * dx + dy * dy + dz * dz;
+                const float MOVE_THRESHOLD_SQR = 0.25f; // 0.5m squared
+
+                if (distSqr > MOVE_THRESHOLD_SQR)
+                {
+                    extProp.m_position = newPos;
+
+                    // Vị trí thay đổi thực (ví dụ Move It di chuyển prop), cập nhật lại spatial grid 32-bit
+                    RemoveFromGrid32(extendedId, oldPos);
+                    AddToGrid32(extendedId, newPos);
+                }
+
+                // Luôn sync các field không bị quantization
                 extProp.m_angle = vProp.Angle;
                 extProp.m_flags = vProp.m_flags;
                 extProp.m_infoIndex = vProp.m_infoIndex;
                 extProp.m_lastAccessTime = Time.realtimeSinceStartup;
-
-                // Nếu vị trí thay đổi (ví dụ Move It di chuyển prop), cập nhật lại spatial grid 32-bit
-                if (oldPos != extProp.m_position)
-                {
-                    RemoveFromGrid32(extendedId, oldPos);
-                    AddToGrid32(extendedId, extProp.m_position);
-                }
             }
             catch (Exception ex)
             {
